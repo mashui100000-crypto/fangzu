@@ -19,21 +19,7 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   setModal, 
   confirmAction 
 }) => {
-  // Initialize default billing dates if missing (migration)
-  useEffect(() => {
-    if (room && (!room.billStartDate || !room.billEndDate)) {
-        const now = new Date();
-        const nextMonth = new Date(now);
-        nextMonth.setMonth(now.getMonth() + 1);
-        
-        const formatDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        
-        actions.updateRoom(room.id, {
-            billStartDate: room.billStartDate || formatDate(now),
-            billEndDate: room.billEndDate || formatDate(nextMonth)
-        });
-    }
-  }, [room?.id]);
+  // Removed auto-date initialization useEffect to keep inputs blank by default as requested
 
   if (!room) { 
     setTimeout(onBack, 0); 
@@ -139,11 +125,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">房租(元)</label>
-            <input type="number" value={room.rent} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="0" />
+            <input type="number" value={room.rent || ''} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="0" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">押金(元)</label>
-            <input type="number" value={room.deposit} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="0" />
+            <input type="number" value={room.deposit || ''} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="0" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1 text-right">收租日(号)</label>
@@ -155,7 +141,7 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
            <div className="flex items-center gap-2 mb-2">
              <Calendar size={14} className="text-gray-500"/>
-             <span className="text-xs font-bold text-gray-500">账单日期 (预收下月)</span>
+             <span className="text-xs font-bold text-gray-500">账单日期 (选填)</span>
            </div>
            <div className="flex items-center gap-2">
              <input 
@@ -185,11 +171,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">上月读数</label>
-                <input type="number" value={room.elecPrev} onChange={(e) => handleChange('elecPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder="0"/>
+                <input type="number" value={room.elecPrev || ''} onChange={(e) => handleChange('elecPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder=""/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-blue-600 font-bold block mb-1">本月读数</label>
-                <input type="number" autoFocus value={room.elecCurr} onChange={(e) => handleChange('elecCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder="空"/>
+                <input type="number" autoFocus value={room.elecCurr || ''} onChange={(e) => handleChange('elecCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder=""/>
               </div>
             </div>
           </div>
@@ -204,11 +190,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">上月读数</label>
-                <input type="number" value={room.waterPrev} onChange={(e) => handleChange('waterPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder="0"/>
+                <input type="number" value={room.waterPrev || ''} onChange={(e) => handleChange('waterPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder=""/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-blue-600 font-bold block mb-1">本月读数</label>
-                <input type="number" value={room.waterCurr} onChange={(e) => handleChange('waterCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder="空"/>
+                <input type="number" value={room.waterCurr || ''} onChange={(e) => handleChange('waterCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder=""/>
               </div>
             </div>
           </div>

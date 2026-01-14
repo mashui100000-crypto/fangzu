@@ -9,18 +9,9 @@ interface BatchBillModalProps {
 }
 
 export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, config, onClose }) => {
-  // Default to Next Month for batch view
-  const [startDate, setStartDate] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  });
-  
-  const [endDate, setEndDate] = useState(() => {
-    const now = new Date();
-    const next = new Date(now);
-    next.setMonth(now.getMonth() + 1);
-    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
-  });
+  // Dates default to empty so user can select without deleting
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const getVal = (v: string | number | undefined) => parseFloat(String(v)) || 0;
   

@@ -19,10 +19,11 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 }) => {
   const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [step, setStep] = useState(1);
+  // Initialized with empty strings to allow easy typing (no need to delete '0' or default)
   const [data, setData] = useState({
     roomNo: '',
-    rent: config.defaultRent,
-    payDay: '1',
+    rent: '', 
+    payDay: '',
     deposit: '',
     prefix: '',
     floorStart: '1',
@@ -45,8 +46,8 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
         const roomNo = `${data.prefix}${f}${r.toString().padStart(2, '0')}`;
         tempRooms.push({
           roomNo,
-          rent: data.rent,
-          payDay: parseInt(data.payDay),
+          rent: data.rent || config.defaultRent, // Use default if blank
+          payDay: data.payDay ? parseInt(data.payDay) : 1, // Use default if blank
           deposit: data.deposit,
           fixedElecPrice: data.fixedElecPrice,
           fixedWaterPrice: data.fixedWaterPrice
@@ -72,6 +73,14 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
       `确定不生成房间 ${previewRooms[index].roomNo} 吗？`,
       () => setPreviewRooms(prev => prev.filter((_, i) => i !== index))
     );
+  };
+
+  const handleSingleSave = () => {
+      onSave({ 
+          ...data, 
+          rent: data.rent || config.defaultRent,
+          payDay: data.payDay ? parseInt(data.payDay) : 1
+      });
   };
 
   return (
@@ -123,7 +132,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div>
                   <label className="text-xs font-bold text-gray-400 uppercase">租金(元)</label>
-                  <input type="number" className="w-full font-bold border-b py-1 outline-none" value={data.rent} onChange={e => handleChange('rent', e.target.value)} />
+                  <input type="number" className="w-full font-bold border-b py-1 outline-none" placeholder={config.defaultRent} value={data.rent} onChange={e => handleChange('rent', e.target.value)} />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-400 uppercase">押金(元)</label>
@@ -133,7 +142,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-gray-400 uppercase">收租日(号)</label>
-                  <input type="number" className="w-full font-bold border-b py-1 outline-none" value={data.payDay} onChange={e => handleChange('payDay', e.target.value)} />
+                  <input type="number" className="w-full font-bold border-b py-1 outline-none" placeholder="1" value={data.payDay} onChange={e => handleChange('payDay', e.target.value)} />
                 </div>
               </div>
               
@@ -147,7 +156,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
             </div>
 
             <button 
-              onClick={() => mode === 'single' ? onSave({ ...data, payDay: parseInt(data.payDay) }) : handleGeneratePreview()} 
+              onClick={() => mode === 'single' ? handleSingleSave() : handleGeneratePreview()} 
               className="w-full mt-4 py-3 bg-black text-white rounded-lg font-bold shadow-lg flex-shrink-0"
             >
               {mode === 'single' ? '确认添加' : '下一步：预览并微调'}
