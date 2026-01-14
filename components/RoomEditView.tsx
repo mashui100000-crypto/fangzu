@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone } from 'lucide-react';
+import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone, History } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState } from '../types';
 
 interface RoomEditViewProps {
@@ -19,8 +19,6 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   setModal, 
   confirmAction 
 }) => {
-  // Removed auto-date initialization useEffect to keep inputs blank by default as requested
-
   if (!room) { 
     setTimeout(onBack, 0); 
     return null; 
@@ -39,6 +37,16 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
 
   const handleChange = (f: keyof Room, v: any) => actions.updateRoom(room.id, { [f]: v });
   
+  // Special handler for Move-In Date change to sync PayDay
+  const handleDateChange = (dateStr: string) => {
+    const updates: Partial<Room> = { moveInDate: dateStr };
+    if (dateStr) {
+      const day = new Date(dateStr).getDate();
+      if (!isNaN(day)) updates.payDay = day;
+    }
+    actions.updateRoom(room.id, updates);
+  };
+
   const handleExtraChange = (newFees: any[]) => actions.updateRoom(room.id, { extraFees: newFees });
   
   const toggleStatus = () => { 
@@ -83,10 +91,18 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-32 space-y-8 mt-6">
-        <div className="text-center bg-blue-50 py-6 rounded-2xl border border-blue-100 relative">
+        <div className="text-center bg-blue-50 py-6 rounded-2xl border border-blue-100 relative group">
           <p className="text-xs text-blue-400 font-bold uppercase mb-1">本月应收</p>
           <div className="text-5xl font-black text-blue-900 font-mono tracking-tighter">¥{grandTotal.toLocaleString()}</div>
           <div className="absolute top-2 right-3 text-blue-300 text-xs font-bold bg-white/50 px-2 py-1 rounded-lg">押金: {room.deposit || 0}</div>
+          
+          {/* History Button */}
+          <button 
+            onClick={() => setModal({ type: 'billHistory', data: room })}
+            className="absolute top-2 left-3 text-blue-400 hover:text-blue-600 p-1 bg-white/50 rounded-lg flex items-center gap-1 text-xs font-bold"
+          >
+            <History size={14}/> 历史
+          </button>
         </div>
 
         {/* Tenant Info */}
@@ -122,7 +138,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        {/* Room Details Grid - 2x2 Layout */}
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">房租(元)</label>
             <input type="number" value={room.rent || ''} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="0" />
@@ -132,8 +149,23 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <input type="number" value={room.deposit || ''} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="0" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1 text-right">入住时间(号)</label>
-            <input type="number" value={room.payDay || ''} onChange={(e) => handleChange('payDay', parseInt(e.target.value))} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-right" placeholder="1" />
+            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">入住日期</label>
+            <input 
+              type="date" 
+              value={room.moveInDate || ''} 
+              onChange={(e) => handleDateChange(e.target.value)} 
+              className="w-full text-sm font-bold border-b border-gray-200 py-1.5 outline-none" 
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">收租时间(号)</label>
+            <input 
+              type="number" 
+              value={room.payDay || ''} 
+              onChange={(e) => handleChange('payDay', parseInt(e.target.value))} 
+              className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" 
+              placeholder="1" 
+            />
           </div>
         </div>
 

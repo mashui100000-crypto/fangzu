@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { safeGetStorage, calculateBillPeriod, formatDateStr } from './utils';
+import { safeGetStorage, calculateBillPeriod } from './utils';
 import { STORAGE_KEY_CONFIG, STORAGE_KEY_DATA, DEFAULT_CONFIG } from './constants';
-import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent } from './types';
+import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent, BillRecord } from './types';
 
 // Components
 import { RoomListView } from './components/RoomListView';
@@ -11,6 +11,7 @@ import { AddRoomModal } from './components/AddRoomModal';
 import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
 import { BillPreviewModal } from './components/BillPreviewModal';
+import { BillHistoryModal } from './components/BillHistoryModal';
 import { NewMonthModal } from './components/NewMonthModal';
 import { BatchDateModal } from './components/BatchDateModal';
 import { GenericConfirmModal } from './components/GenericConfirmModal';
@@ -91,6 +92,17 @@ export default function App() {
     if (isLoaded) localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
   }, [config, isLoaded]);
 
+  // --- Helper to calculate total for history ---
+  const calculateTotal = (r: Room, cfg: AppConfig): number => {
+    const getVal = (v: any) => parseFloat(v) || 0;
+    const ep = r.fixedElecPrice || cfg.elecPrice;
+    const wp = r.fixedWaterPrice || cfg.waterPrice;
+    const e = (getVal(r.elecCurr) - getVal(r.elecPrev)) * getVal(ep);
+    const w = (getVal(r.waterCurr) - getVal(r.waterPrev)) * getVal(wp);
+    const extra = (r.extraFees || []).reduce((sum, item) => sum + getVal(item.amount), 0);
+    return Math.max(0, getVal(r.rent) + Math.max(0, e) + Math.max(0, w) + extra);
+  };
+
   // --- Handlers ---
 
   const commitChange = (newRooms: Room[], desc: string) => {
@@ -128,6 +140,7 @@ export default function App() {
       rent: data.rent || config.defaultRent,
       deposit: data.deposit || '',
       payDay: payDay,
+      moveInDate: data.moveInDate,
       tenantName: '',
       tenantPhone: '',
       fixedElecPrice: data.fixedElecPrice || '',
@@ -140,7 +153,8 @@ export default function App() {
       status: 'unpaid',
       lastUpdated: new Date().toISOString(),
       billStartDate: start,
-      billEndDate: end
+      billEndDate: end,
+      billHistory: []
     };
   };
 
@@ -204,8 +218,26 @@ export default function App() {
       const updated = history.present.map(r => {
         if (targetDay !== 'all' && r.payDay !== targetDay) return r;
         
-        // Use calculateBillPeriod to shift dates:
-        // Pass r.billEndDate as the 'lastEndDate' so the new start = old end.
+        // 1. Create history record if needed (only if status was somewhat active or just record anyway)
+        const record: BillRecord = {
+            id: Date.now().toString() + Math.random(),
+            recordedAt: new Date().toISOString(),
+            startDate: r.billStartDate || '',
+            endDate: r.billEndDate || '',
+            rent: r.rent,
+            elecPrev: r.elecPrev,
+            elecCurr: r.elecCurr,
+            waterPrev: r.waterPrev,
+            waterCurr: r.waterCurr,
+            extraFees: [...(r.extraFees || [])],
+            total: calculateTotal(r, config),
+            tenantName: r.tenantName,
+            roomNo: r.roomNo
+        };
+
+        const newHistory = [...(r.billHistory || []), record];
+
+        // 2. Use calculateBillPeriod to shift dates
         const { start, end } = calculateBillPeriod(r.payDay || 1, r.billEndDate);
         
         return {
@@ -216,7 +248,8 @@ export default function App() {
           waterCurr: '',
           status: 'unpaid' as const,
           billStartDate: start,
-          billEndDate: end
+          billEndDate: end,
+          billHistory: newHistory
         };
       });
       commitChange(updated, "开启新月份");
@@ -250,6 +283,33 @@ export default function App() {
 
   const confirmAction = (title: string, content: string, action: () => void) => {
     setModal({ type: 'genericConfirm', title, content, onConfirm: action });
+  };
+
+  // Convert a BillRecord to a temporary Room object for viewing in the standard modal
+  const viewHistoryRecord = (record: BillRecord) => {
+     // Find the current room config
+     const currentRoom = history.present.find(r => r.roomNo === record.roomNo);
+     
+     const tempRoom: Room = {
+         ...currentRoom!, // inherit static props like prices
+         id: record.id,
+         roomNo: record.roomNo,
+         rent: record.rent,
+         elecPrev: record.elecPrev,
+         elecCurr: record.elecCurr,
+         waterPrev: record.waterPrev,
+         waterCurr: record.waterCurr,
+         extraFees: record.extraFees,
+         billStartDate: record.startDate,
+         billEndDate: record.endDate,
+         tenantName: record.tenantName,
+         // Dummy required fields
+         deposit: '0', 
+         payDay: 1, 
+         status: 'paid',
+         lastUpdated: record.recordedAt
+     };
+     setModal({ type: 'bill', data: tempRoom });
   };
 
   if (!isLoaded) return <div className="flex h-screen items-center justify-center text-gray-500">正在启动...</div>;
@@ -308,6 +368,14 @@ export default function App() {
       
       {modal.type === 'bill' && modal.data && (
         <BillPreviewModal room={modal.data} config={config} onClose={() => setModal({ type: null })} />
+      )}
+
+      {modal.type === 'billHistory' && modal.data && (
+        <BillHistoryModal 
+            room={modal.data} 
+            onSelect={viewHistoryRecord}
+            onClose={() => setModal({ type: null })} 
+        />
       )}
 
       {modal.type === 'batchBill' && modal.data && (

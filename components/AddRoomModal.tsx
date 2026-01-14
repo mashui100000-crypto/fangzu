@@ -19,11 +19,11 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
 }) => {
   const [mode, setMode] = useState<'single' | 'batch'>('single');
   const [step, setStep] = useState(1);
-  // Initialized with empty strings to allow easy typing (no need to delete '0' or default)
   const [data, setData] = useState({
     roomNo: '',
     rent: '', 
-    payDay: '',
+    moveInDate: '', // Full date string
+    payDay: '',     // Derived day of month
     deposit: '',
     prefix: '',
     floorStart: '1',
@@ -34,7 +34,15 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
   });
   const [previewRooms, setPreviewRooms] = useState<Partial<Room>[]>([]);
 
-  const handleChange = (f: string, v: string) => setData({ ...data, [f]: v });
+  const handleChange = (f: string, v: string) => {
+    let updates: any = { [f]: v };
+    // Automatically set payDay if moveInDate changes
+    if (f === 'moveInDate' && v) {
+      const day = new Date(v).getDate();
+      if (!isNaN(day)) updates.payDay = day.toString();
+    }
+    setData(prev => ({ ...prev, ...updates }));
+  };
 
   const handleGeneratePreview = () => {
     const start = parseInt(data.floorStart), end = parseInt(data.floorEnd), rCount = parseInt(data.roomCount);
@@ -46,8 +54,9 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
         const roomNo = `${data.prefix}${f}${r.toString().padStart(2, '0')}`;
         tempRooms.push({
           roomNo,
-          rent: data.rent || config.defaultRent, // Use default if blank
-          payDay: data.payDay ? parseInt(data.payDay) : 1, // Use default if blank
+          rent: data.rent || config.defaultRent, 
+          payDay: data.payDay ? parseInt(data.payDay) : 1, 
+          moveInDate: data.moveInDate,
           deposit: data.deposit,
           fixedElecPrice: data.fixedElecPrice,
           fixedWaterPrice: data.fixedWaterPrice
@@ -63,6 +72,11 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
       const newArr = [...prev];
       // @ts-ignore
       newArr[index][field] = value;
+      // Also sync payDay if moving date changes in preview
+      if (field === 'moveInDate' && value) {
+         const day = new Date(value).getDate();
+         if (!isNaN(day)) newArr[index].payDay = day;
+      }
       return newArr;
     });
   };
@@ -141,8 +155,23 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">入住时间(号)</label>
-                  <input type="number" className="w-full font-bold border-b py-1 outline-none" placeholder="1" value={data.payDay} onChange={e => handleChange('payDay', e.target.value)} />
+                  <label className="text-xs font-bold text-gray-400 uppercase">入住日期</label>
+                  <input 
+                    type="date" 
+                    className="w-full font-bold border-b py-1 outline-none" 
+                    value={data.moveInDate} 
+                    onChange={e => handleChange('moveInDate', e.target.value)} 
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">收租时间(号)</label>
+                  <input 
+                    type="number" 
+                    className="w-full font-bold border-b py-1 outline-none" 
+                    placeholder="1"
+                    value={data.payDay} 
+                    onChange={e => handleChange('payDay', e.target.value)} 
+                  />
                 </div>
               </div>
               
@@ -183,7 +212,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                     </button>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="flex-1">
                       <label className="text-[10px] text-gray-400 block">租金</label>
                       <input type="number" className="w-full bg-gray-50 border rounded px-2 py-1 text-sm font-bold text-gray-800 outline-none" value={room.rent} onChange={e => updatePreviewItem(idx, 'rent', e.target.value)} />
@@ -193,7 +222,11 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                       <input type="number" className="w-full bg-gray-50 border rounded px-2 py-1 text-sm font-bold text-gray-800 outline-none" value={room.deposit} onChange={e => updatePreviewItem(idx, 'deposit', e.target.value)} />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] text-gray-400 block">入住时间</label>
+                      <label className="text-[10px] text-gray-400 block">入住日期</label>
+                      <input type="date" className="w-full bg-gray-50 border rounded px-2 py-1 text-xs font-bold text-gray-800 outline-none" value={room.moveInDate || ''} onChange={e => updatePreviewItem(idx, 'moveInDate', e.target.value)} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-gray-400 block">收租日</label>
                       <input type="number" className="w-full bg-gray-50 border rounded px-2 py-1 text-sm font-bold text-gray-800 outline-none" value={room.payDay} onChange={e => updatePreviewItem(idx, 'payDay', e.target.value)} />
                     </div>
                   </div>

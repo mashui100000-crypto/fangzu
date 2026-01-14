@@ -1,7 +1,24 @@
+
 export interface ExtraFee {
   id: number;
   name: string;
   amount: string;
+}
+
+export interface BillRecord {
+  id: string;
+  recordedAt: string; // When this record was created
+  startDate: string;
+  endDate: string;
+  rent: string;
+  elecPrev: number;
+  elecCurr: string;
+  waterPrev: number;
+  waterCurr: string;
+  extraFees: ExtraFee[];
+  total: number;
+  tenantName?: string;
+  roomNo: string;
 }
 
 export interface Room {
@@ -9,7 +26,9 @@ export interface Room {
   roomNo: string;
   rent: string;
   deposit: string;
-  payDay: number;
+  payDay: number; // Day of month (1-31), derived from moveInDate if present, used for sorting
+  moveInDate?: string; // Full date string YYYY-MM-DD
+  
   // Tenant Info
   tenantName?: string;
   tenantPhone?: string;
@@ -23,9 +42,13 @@ export interface Room {
   extraFees: ExtraFee[];
   status: 'paid' | 'unpaid';
   lastUpdated: string;
-  // New fields for billing memory
+  
+  // Billing cycle memory
   billStartDate?: string;
   billEndDate?: string;
+  
+  // History
+  billHistory?: BillRecord[];
 }
 
 export interface AppConfig {
@@ -65,6 +88,7 @@ export type ModalType =
   | 'newMonth' 
   | 'batchDate' 
   | 'genericConfirm' 
+  | 'billHistory'
   | null;
 
 export interface ModalState {
