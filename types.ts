@@ -10,6 +10,10 @@ export interface Room {
   rent: string;
   deposit: string;
   payDay: number;
+  // Tenant Info
+  tenantName?: string;
+  tenantPhone?: string;
+  
   fixedElecPrice?: string;
   fixedWaterPrice?: string;
   elecPrev: number;
@@ -69,4 +73,9 @@ export interface ModalState {
   onConfirm?: () => void;
   title?: string;
   content?: string;
+}
+
+export interface InstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }

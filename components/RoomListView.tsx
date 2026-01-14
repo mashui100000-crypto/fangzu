@@ -2,9 +2,9 @@ import React from 'react';
 import { 
   X, CheckSquare, Search, BookOpen, History, Settings, 
   Building2, RotateCcw, FileText, Square, CheckCircle, Plus,
-  ListChecks, Copy
+  ListChecks, Copy, Download
 } from 'lucide-react';
-import { Room, AppConfig, ActionHandlers, ModalState } from '../types';
+import { Room, AppConfig, ActionHandlers, ModalState, InstallPromptEvent } from '../types';
 import { getBuildingName } from '../utils';
 
 interface RoomListViewProps {
@@ -35,11 +35,14 @@ interface RoomListViewProps {
   setModal: React.Dispatch<React.SetStateAction<ModalState>>;
   confirmAction: (title: string, content: string, action: () => void) => void;
   config: AppConfig;
+  installPrompt: InstallPromptEvent | null;
+  onInstall: () => void;
 }
 
 export const RoomListView: React.FC<RoomListViewProps> = ({ 
   rooms, search, filter, batch, actions, navigate, 
-  setModal, openSettings, openGuide, confirmAction, config 
+  setModal, openSettings, openGuide, confirmAction, config,
+  installPrompt, onInstall
 }) => {
   const calcTotal = (r: Room) => {
     const getVal = (v: any) => parseFloat(v) || 0;
@@ -146,14 +149,19 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                 <h1 className="text-xl font-black text-gray-800">房租管家</h1>
               </div>
               <div className="flex gap-2">
+                {installPrompt && (
+                   <button onClick={onInstall} className="flex items-center gap-1 bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform animate-pulse">
+                     <Download size={14}/> 安装
+                   </button>
+                )}
                 <button onClick={openGuide} className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200">
                   <BookOpen size={14}/> 指南
                 </button>
                 <button onClick={() => setModal({ type: 'history' })} className="flex items-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200">
-                  <History size={14}/> 历史
+                  <History size={14}/>
                 </button>
                 <button onClick={openSettings} className="p-2 bg-white border rounded-full text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1 px-3">
-                  <Settings size={16}/> <span className="text-xs font-bold">设置</span>
+                  <Settings size={16}/>
                 </button>
               </div>
             </div>
@@ -258,8 +266,15 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                     {!batch.isMode && <div className={`absolute left-0 top-3 bottom-3 w-1 rounded-r-full ${isPaid ? 'bg-green-400' : 'bg-red-500'}`}></div>}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-1">
-                        <span className="text-lg font-bold text-gray-800">{room.roomNo}</span>
-                        <span className="text-lg font-bold font-mono text-gray-900">¥{total.toLocaleString()}</span>
+                        <div className="flex items-baseline gap-2 overflow-hidden">
+                          <span className="text-lg font-bold text-gray-800 whitespace-nowrap">{room.roomNo}</span>
+                          {room.tenantName && (
+                            <span className="text-sm font-bold text-gray-500 truncate">
+                              {room.tenantName}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-lg font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center h-6">
                         <span className="text-xs text-gray-400 flex items-center gap-1"><Building2 size={10}/> {getBuildingName(room.roomNo)}</span>

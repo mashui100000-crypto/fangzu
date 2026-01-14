@@ -31,17 +31,7 @@ export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, config, o
         const [y, m, d] = s.split('-');
         return `${y}年${parseInt(m)}月${parseInt(d)}日`;
     };
-    const formatShort = (s: string) => {
-        const [y, m, d] = s.split('-');
-        return `${parseInt(m)}月${parseInt(d)}日`;
-    };
     
-    const startY = startDate.split('-')[0];
-    const endY = endDate.split('-')[0];
-    
-    if (startY === endY) {
-        return `${formatFull(startDate)} 至 ${formatShort(endDate)}`;
-    }
     return `${formatFull(startDate)} 至 ${formatFull(endDate)}`;
   }, [startDate, endDate]);
 
@@ -61,17 +51,16 @@ export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, config, o
         
         const xTotal = (room.extraFees || []).reduce((s, i) => s + getVal(i.amount), 0);
         const total = getVal(room.rent) + eTotal + wTotal + xTotal;
-
-        // Note: Batch bill uses a shared date for simplicity, but if rooms have specific saved dates, 
-        // a future enhancement could be to use room.billStartDate if desired. 
-        // For now, consistent batch date is usually preferred for bulk sending.
+        const depositVal = getVal(room.deposit);
 
         return `【${room.roomNo} 房租】${dateStr}\n` + 
         `🏠 房租：${room.rent}元\n` + 
         (eUsage > 0 || room.elecCurr ? `⚡ 电费：${ePrev}→${eCurr} (${eUsage.toFixed(1)}度) = ${eTotal.toFixed(1)}元\n` : '') + 
         (wUsage > 0 || room.waterCurr ? `💧 水费：${wPrev}→${wCurr} (${wUsage.toFixed(1)}吨) = ${wTotal.toFixed(1)}元\n` : '') + 
         (room.extraFees || []).map(f => getVal(f.amount) > 0 ? `🧾 ${f.name}：${f.amount}元\n` : '').join('') + 
-        `💰 总计：${total.toFixed(1)} 元\n----------------\n`;
+        `💰 总计：${total.toFixed(1)} 元\n` + 
+        (depositVal > 0 ? `(已收押金：${depositVal}元)\n` : '') + 
+        `----------------\n`;
     }).join('\n');
   }, [rooms, config, dateStr]);
 

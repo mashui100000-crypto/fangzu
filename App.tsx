@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { safeGetStorage } from './utils';
 import { STORAGE_KEY_CONFIG, STORAGE_KEY_DATA, DEFAULT_CONFIG } from './constants';
-import { Room, AppConfig, HistoryState, ActionHandlers, ModalState } from './types';
+import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent } from './types';
 
 // Components
 import { RoomListView } from './components/RoomListView';
@@ -40,6 +40,9 @@ export default function App() {
   // Config State
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
 
+  // PWA Install Prompt State
+  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+
   // --- Initialization ---
   useEffect(() => {
     try {
@@ -63,6 +66,18 @@ export default function App() {
     } catch (e) {
       setIsLoaded(true);
     }
+
+    // Capture PWA install prompt
+    const handler = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      // Stash the event so it can be triggered later.
+      setInstallPrompt(e as InstallPromptEvent);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   // --- Auto Save ---
@@ -93,6 +108,15 @@ export default function App() {
     }
   };
 
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
+
   // Helper to format date YYYY-MM-DD
   const formatDate = (d: Date) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -110,6 +134,8 @@ export default function App() {
       rent: data.rent || config.defaultRent,
       deposit: data.deposit || '',
       payDay: typeof data.payDay === 'number' ? data.payDay : 1,
+      tenantName: '',
+      tenantPhone: '',
       fixedElecPrice: data.fixedElecPrice || '',
       fixedWaterPrice: data.fixedWaterPrice || '',
       elecPrev: 0,
@@ -212,6 +238,8 @@ export default function App() {
       const updated: Room = { 
         ...target, 
         deposit: returnDeposit ? '0' : target.deposit, 
+        tenantName: '',
+        tenantPhone: '',
         status: 'unpaid', 
         extraFees: [] 
       };
@@ -249,6 +277,8 @@ export default function App() {
           setModal={setModal}
           confirmAction={confirmAction}
           config={config}
+          installPrompt={installPrompt}
+          onInstall={handleInstallApp}
         />
       )}
 

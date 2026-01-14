@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar } from 'lucide-react';
+import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState } from '../types';
 
 interface RoomEditViewProps {
@@ -103,18 +103,51 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
           <div className="absolute top-2 right-3 text-blue-300 text-xs font-bold bg-white/50 px-2 py-1 rounded-lg">押金: {room.deposit || 0}</div>
         </div>
 
+        {/* Tenant Info */}
+        <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+             <User size={14} className="text-gray-500"/>
+             <span className="text-xs font-bold text-gray-500">租客信息</span>
+          </div>
+          <div className="flex gap-4">
+             <div className="flex-1">
+                 <div className="relative">
+                    <User size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                    <input 
+                      placeholder="租客姓名" 
+                      className="w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border border-gray-200 rounded outline-none"
+                      value={room.tenantName || ''}
+                      onChange={e => handleChange('tenantName', e.target.value)}
+                    />
+                 </div>
+             </div>
+             <div className="flex-1">
+                 <div className="relative">
+                    <Phone size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                    <input 
+                      type="tel"
+                      placeholder="联系电话" 
+                      className="w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border border-gray-200 rounded outline-none"
+                      value={room.tenantPhone || ''}
+                      onChange={e => handleChange('tenantPhone', e.target.value)}
+                    />
+                 </div>
+             </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-3 gap-3">
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">房租(元)</label>
-            <input type="number" value={room.rent} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" />
+            <input type="number" value={room.rent} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="0" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">押金(元)</label>
-            <input type="number" value={room.deposit} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" />
+            <input type="number" value={room.deposit} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="0" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1 text-right">收租日(号)</label>
-            <input type="number" value={room.payDay || 1} onChange={(e) => handleChange('payDay', parseInt(e.target.value))} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-right" />
+            <input type="number" value={room.payDay || ''} onChange={(e) => handleChange('payDay', parseInt(e.target.value))} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-right" placeholder="1" />
           </div>
         </div>
 
@@ -152,11 +185,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">上月读数</label>
-                <input type="number" value={room.elecPrev} onChange={(e) => handleChange('elecPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none"/>
+                <input type="number" value={room.elecPrev} onChange={(e) => handleChange('elecPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder="0"/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-blue-600 font-bold block mb-1">本月读数</label>
-                <input type="number" autoFocus value={room.elecCurr} onChange={(e) => handleChange('elecCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none"/>
+                <input type="number" autoFocus value={room.elecCurr} onChange={(e) => handleChange('elecCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder="空"/>
               </div>
             </div>
           </div>
@@ -171,11 +204,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">上月读数</label>
-                <input type="number" value={room.waterPrev} onChange={(e) => handleChange('waterPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none"/>
+                <input type="number" value={room.waterPrev} onChange={(e) => handleChange('waterPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder="0"/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-blue-600 font-bold block mb-1">本月读数</label>
-                <input type="number" value={room.waterCurr} onChange={(e) => handleChange('waterCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none"/>
+                <input type="number" value={room.waterCurr} onChange={(e) => handleChange('waterCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder="空"/>
               </div>
             </div>
           </div>
