@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Copy of RentManager Pro",
+  "description": "A comprehensive mobile-first property management application for landlords. Features include batch room generation, rent/utility calculation, bill generation (text/image), history undo/redo, and data persistence.",
+  "requestFramePermissions": []
+}
