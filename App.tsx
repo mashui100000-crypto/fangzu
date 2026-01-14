@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { safeGetStorage } from './utils';
+import { safeGetStorage, calculateBillPeriod, formatDateStr } from './utils';
 import { STORAGE_KEY_CONFIG, STORAGE_KEY_DATA, DEFAULT_CONFIG } from './constants';
 import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent } from './types';
 
@@ -117,23 +117,17 @@ export default function App() {
     }
   };
 
-  // Helper to format date YYYY-MM-DD
-  const formatDate = (d: Date) => {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
-
   const createRoomObj = (data: Partial<Room>, index = 0): Room => {
-    // Default Billing Cycle: From Today to Today + 1 Month (Pre-payment model)
-    const now = new Date();
-    const nextMonth = new Date(now);
-    nextMonth.setMonth(now.getMonth() + 1);
+    const payDay = typeof data.payDay === 'number' ? data.payDay : 1;
+    // Calculate initial dates based on payDay
+    const { start, end } = calculateBillPeriod(payDay);
 
     return {
       id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 6)}`,
       roomNo: data.roomNo || '未命名',
       rent: data.rent || config.defaultRent,
       deposit: data.deposit || '',
-      payDay: typeof data.payDay === 'number' ? data.payDay : 1,
+      payDay: payDay,
       tenantName: '',
       tenantPhone: '',
       fixedElecPrice: data.fixedElecPrice || '',
@@ -145,8 +139,8 @@ export default function App() {
       extraFees: [],
       status: 'unpaid',
       lastUpdated: new Date().toISOString(),
-      billStartDate: formatDate(now),
-      billEndDate: formatDate(nextMonth)
+      billStartDate: start,
+      billEndDate: end
     };
   };
 
@@ -207,14 +201,13 @@ export default function App() {
     },
 
     newMonth: (targetDay) => {
-      const now = new Date();
-      const nextMonth = new Date(now);
-      nextMonth.setMonth(now.getMonth() + 1);
-      const sDate = formatDate(now);
-      const eDate = formatDate(nextMonth);
-
       const updated = history.present.map(r => {
         if (targetDay !== 'all' && r.payDay !== targetDay) return r;
+        
+        // Use calculateBillPeriod to shift dates:
+        // Pass r.billEndDate as the 'lastEndDate' so the new start = old end.
+        const { start, end } = calculateBillPeriod(r.payDay || 1, r.billEndDate);
+        
         return {
           ...r,
           elecPrev: r.elecCurr ? parseFloat(r.elecCurr) : r.elecPrev,
@@ -222,9 +215,8 @@ export default function App() {
           waterPrev: r.waterCurr ? parseFloat(r.waterCurr) : r.waterPrev,
           waterCurr: '',
           status: 'unpaid' as const,
-          // Reset billing cycle for new month
-          billStartDate: sDate,
-          billEndDate: eDate
+          billStartDate: start,
+          billEndDate: end
         };
       });
       commitChange(updated, "开启新月份");

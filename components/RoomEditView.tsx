@@ -132,7 +132,7 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <input type="number" value={room.deposit || ''} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="0" />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1 text-right">收租日(号)</label>
+            <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1 text-right">入住时间(号)</label>
             <input type="number" value={room.payDay || ''} onChange={(e) => handleChange('payDay', parseInt(e.target.value))} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-right" placeholder="1" />
           </div>
         </div>

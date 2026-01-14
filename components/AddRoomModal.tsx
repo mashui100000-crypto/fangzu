@@ -141,7 +141,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-400 uppercase">收租日(号)</label>
+                  <label className="text-xs font-bold text-gray-400 uppercase">入住时间(号)</label>
                   <input type="number" className="w-full font-bold border-b py-1 outline-none" placeholder="1" value={data.payDay} onChange={e => handleChange('payDay', e.target.value)} />
                 </div>
               </div>
@@ -193,7 +193,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                       <input type="number" className="w-full bg-gray-50 border rounded px-2 py-1 text-sm font-bold text-gray-800 outline-none" value={room.deposit} onChange={e => updatePreviewItem(idx, 'deposit', e.target.value)} />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] text-gray-400 block">收租日</label>
+                      <label className="text-[10px] text-gray-400 block">入住时间</label>
                       <input type="number" className="w-full bg-gray-50 border rounded px-2 py-1 text-sm font-bold text-gray-800 outline-none" value={room.payDay} onChange={e => updatePreviewItem(idx, 'payDay', e.target.value)} />
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, FileText, Download } from 'lucide-react';
 import { Room, AppConfig } from '../types';
+import { calculateBillPeriod } from '../utils';
 
 interface BillPreviewModalProps {
   room: Room;
@@ -16,16 +17,22 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, config
   // Dates
   const [startDate] = useState(() => {
     if (room.billStartDate) return room.billStartDate;
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const { start } = calculateBillPeriod(room.payDay || 1);
+    return start;
   });
   
   const [endDate] = useState(() => {
     if (room.billEndDate) return room.billEndDate;
-    const now = new Date();
-    const next = new Date(now);
-    next.setMonth(now.getMonth() + 1);
-    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+    // Recalculate end based on start to ensure they align if start was just generated
+    if (!room.billStartDate) {
+         const { end } = calculateBillPeriod(room.payDay || 1);
+         return end;
+    }
+    // Fallback if only start date existed in room (unlikely)
+    const start = new Date(room.billStartDate);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    return `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`;
   });
 
   const getVal = (v: string | number | undefined) => parseFloat(String(v)) || 0;
