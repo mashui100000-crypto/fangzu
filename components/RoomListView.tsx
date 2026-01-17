@@ -277,7 +277,10 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                         <span className="text-lg font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center h-6">
-                        <span className="text-xs text-gray-400 flex items-center gap-1"><Building2 size={10}/> {getBuildingName(room.roomNo)}</span>
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Building2 size={10}/> {getBuildingName(room.roomNo)}
+                          {room.moveInDate && <span className="ml-1 text-gray-400">| 入住: {room.moveInDate}</span>}
+                        </span>
                         {!batch.isMode && !isPaid && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); setModal({ type: 'bill', data: room }); }} 

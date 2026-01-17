@@ -18,6 +18,7 @@ export interface BillRecord {
   extraFees: ExtraFee[];
   total: number;
   tenantName?: string;
+  tenantIdCard?: string;
   roomNo: string;
 }
 
@@ -32,6 +33,7 @@ export interface Room {
   // Tenant Info
   tenantName?: string;
   tenantPhone?: string;
+  tenantIdCard?: string;
   
   fixedElecPrice?: string;
   fixedWaterPrice?: string;

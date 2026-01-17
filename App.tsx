@@ -143,6 +143,7 @@ export default function App() {
       moveInDate: data.moveInDate,
       tenantName: '',
       tenantPhone: '',
+      tenantIdCard: '',
       fixedElecPrice: data.fixedElecPrice || '',
       fixedWaterPrice: data.fixedWaterPrice || '',
       elecPrev: 0,
@@ -232,6 +233,7 @@ export default function App() {
             extraFees: [...(r.extraFees || [])],
             total: calculateTotal(r, config),
             tenantName: r.tenantName,
+            tenantIdCard: r.tenantIdCard,
             roomNo: r.roomNo
         };
 
@@ -265,6 +267,7 @@ export default function App() {
         deposit: returnDeposit ? '0' : target.deposit, 
         tenantName: '',
         tenantPhone: '',
+        tenantIdCard: '',
         status: 'unpaid', 
         extraFees: [] 
       };
@@ -303,6 +306,7 @@ export default function App() {
          billStartDate: record.startDate,
          billEndDate: record.endDate,
          tenantName: record.tenantName,
+         tenantIdCard: record.tenantIdCard,
          // Dummy required fields
          deposit: '0', 
          payDay: 1, 

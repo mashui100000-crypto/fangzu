@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone, History } from 'lucide-react';
+import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone, History, CreditCard } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState } from '../types';
 
 interface RoomEditViewProps {
@@ -75,6 +75,10 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
     setModal({ type: 'moveOut', data: room });
   };
 
+  // Validation Logic
+  const isPhoneValid = !room.tenantPhone || /^\d{11}$/.test(room.tenantPhone);
+  const isIdCardValid = !room.tenantIdCard || /^.{18}$/.test(room.tenantIdCard); // Strictly check for 18 characters
+
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 sticky top-0 bg-white z-20">
@@ -111,7 +115,7 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
              <User size={14} className="text-gray-500"/>
              <span className="text-xs font-bold text-gray-500">租客信息</span>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-3">
              <div className="flex-1">
                  <div className="relative">
                     <User size={14} className="absolute left-2 top-2.5 text-gray-400" />
@@ -129,12 +133,27 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
                     <input 
                       type="tel"
                       placeholder="联系电话" 
-                      className="w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border border-gray-200 rounded outline-none"
+                      className={`w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border rounded outline-none ${!isPhoneValid ? 'border-red-500 text-red-600 bg-red-50' : 'border-gray-200'}`}
                       value={room.tenantPhone || ''}
                       onChange={e => handleChange('tenantPhone', e.target.value)}
                     />
                  </div>
+                 {!isPhoneValid && <p className="text-[10px] text-red-500 mt-1 pl-1">电话需11位</p>}
              </div>
+          </div>
+          
+          <div className="w-full">
+             <div className="relative">
+                <CreditCard size={14} className="absolute left-2 top-2.5 text-gray-400" />
+                <input 
+                  placeholder="身份证号" 
+                  className={`w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border rounded outline-none ${!isIdCardValid ? 'border-red-500 text-red-600 bg-red-50' : 'border-gray-200'}`}
+                  value={room.tenantIdCard || ''}
+                  onChange={e => handleChange('tenantIdCard', e.target.value)}
+                  maxLength={18}
+                />
+             </div>
+             {!isIdCardValid && <p className="text-[10px] text-red-500 mt-1 pl-1">身份证需18位</p>}
           </div>
         </div>
 
