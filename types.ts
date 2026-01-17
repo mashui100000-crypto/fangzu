@@ -79,6 +79,7 @@ export interface ActionHandlers {
   deleteBatch: () => void;
   updateBatchDate: (day: string) => void;
   newMonth: (targetDay: number | 'all') => void;
+  settleSingleRoom: (id: string) => void; // New Action
   moveOut: (id: string, returnDeposit: boolean) => void;
 }
 

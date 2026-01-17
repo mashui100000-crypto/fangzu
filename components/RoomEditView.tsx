@@ -74,6 +74,14 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   const handleMoveOutRequest = () => {
     setModal({ type: 'moveOut', data: room });
   };
+  
+  const handleSingleSettle = () => {
+      confirmAction(
+          "确认结算本月?", 
+          "系统将保存当前账单到历史记录，把本月读数转为上月读数，并自动设置下一个账单周期的日期。", 
+          () => actions.settleSingleRoom(room.id)
+      );
+  };
 
   // Validation Logic
   const isPhoneValid = !room.tenantPhone || /^\d{11}$/.test(room.tenantPhone);
@@ -190,9 +198,17 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
 
         {/* Billing Cycle Section */}
         <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-           <div className="flex items-center gap-2 mb-2">
-             <Calendar size={14} className="text-gray-500"/>
-             <span className="text-xs font-bold text-gray-500">账单日期 (选填)</span>
+           <div className="flex items-center justify-between mb-2">
+             <div className="flex items-center gap-2">
+               <Calendar size={14} className="text-gray-500"/>
+               <span className="text-xs font-bold text-gray-500">账单日期 (选填)</span>
+             </div>
+             <button
+               onClick={handleSingleSettle}
+               className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded font-bold shadow-sm hover:bg-blue-700"
+             >
+               📅 结算/开启下月
+             </button>
            </div>
            <div className="flex items-center gap-2">
              <input 

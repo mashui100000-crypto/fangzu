@@ -103,6 +103,46 @@ export default function App() {
     return Math.max(0, getVal(r.rent) + Math.max(0, e) + Math.max(0, w) + extra);
   };
 
+  // --- Core Logic: Settle a Room (Shared by Batch and Single) ---
+  const processSettlement = (r: Room): Room => {
+      // 1. Create history record
+      const record: BillRecord = {
+          id: Date.now().toString() + Math.random(),
+          recordedAt: new Date().toISOString(),
+          startDate: r.billStartDate || '',
+          endDate: r.billEndDate || '',
+          rent: r.rent,
+          elecPrev: r.elecPrev,
+          elecCurr: r.elecCurr,
+          waterPrev: r.waterPrev,
+          waterCurr: r.waterCurr,
+          extraFees: [...(r.extraFees || [])],
+          total: calculateTotal(r, config),
+          tenantName: r.tenantName,
+          tenantIdCard: r.tenantIdCard,
+          roomNo: r.roomNo
+      };
+
+      const newHistory = [...(r.billHistory || []), record];
+
+      // 2. Use calculateBillPeriod to shift dates
+      // Ensure payDay is treated as a number
+      const payDayInt = r.payDay ? parseInt(String(r.payDay)) : 1;
+      const { start, end } = calculateBillPeriod(payDayInt, r.billEndDate);
+      
+      return {
+        ...r,
+        elecPrev: r.elecCurr ? parseFloat(r.elecCurr) : r.elecPrev,
+        elecCurr: '',
+        waterPrev: r.waterCurr ? parseFloat(r.waterCurr) : r.waterPrev,
+        waterCurr: '',
+        status: 'unpaid' as const,
+        billStartDate: start,
+        billEndDate: end,
+        billHistory: newHistory
+      };
+  };
+
   // --- Handlers ---
 
   const commitChange = (newRooms: Room[], desc: string) => {
@@ -217,45 +257,32 @@ export default function App() {
 
     newMonth: (targetDay) => {
       const updated = history.present.map(r => {
-        if (targetDay !== 'all' && r.payDay !== targetDay) return r;
+        // Strict Type Conversion for Comparison
+        // targetDay can be 'all' or a number.
+        // r.payDay might be a string ("1") in storage or a number (1).
         
-        // 1. Create history record if needed (only if status was somewhat active or just record anyway)
-        const record: BillRecord = {
-            id: Date.now().toString() + Math.random(),
-            recordedAt: new Date().toISOString(),
-            startDate: r.billStartDate || '',
-            endDate: r.billEndDate || '',
-            rent: r.rent,
-            elecPrev: r.elecPrev,
-            elecCurr: r.elecCurr,
-            waterPrev: r.waterPrev,
-            waterCurr: r.waterCurr,
-            extraFees: [...(r.extraFees || [])],
-            total: calculateTotal(r, config),
-            tenantName: r.tenantName,
-            tenantIdCard: r.tenantIdCard,
-            roomNo: r.roomNo
-        };
-
-        const newHistory = [...(r.billHistory || []), record];
-
-        // 2. Use calculateBillPeriod to shift dates
-        const { start, end } = calculateBillPeriod(r.payDay || 1, r.billEndDate);
+        if (targetDay !== 'all') {
+            const rDay = r.payDay ? parseInt(String(r.payDay)) : 1;
+            const tDay = parseInt(String(targetDay));
+            if (rDay !== tDay) return r;
+        }
         
-        return {
-          ...r,
-          elecPrev: r.elecCurr ? parseFloat(r.elecCurr) : r.elecPrev,
-          elecCurr: '',
-          waterPrev: r.waterCurr ? parseFloat(r.waterCurr) : r.waterPrev,
-          waterCurr: '',
-          status: 'unpaid' as const,
-          billStartDate: start,
-          billEndDate: end,
-          billHistory: newHistory
-        };
+        return processSettlement(r);
       });
-      commitChange(updated, "开启新月份");
+      commitChange(updated, "批量开启新月份");
       setModal({ type: null });
+    },
+
+    settleSingleRoom: (id: string) => {
+        const target = history.present.find(r => r.id === id);
+        if (!target) return;
+
+        const updated = history.present.map(r => {
+            if (r.id !== id) return r;
+            return processSettlement(r);
+        });
+
+        commitChange(updated, `单个结算: ${target.roomNo}`);
     },
 
     moveOut: (id, returnDeposit) => {
