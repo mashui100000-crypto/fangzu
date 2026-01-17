@@ -63,13 +63,33 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
   
   const allPayDays = [...new Set(rooms.map(r => r.payDay || 1))].sort((a, b) => Number(a) - Number(b));
   
-  const grouped = allPayDays.map(day => ({ 
-    day, 
-    rooms: filtered.filter(r => (r.payDay || 1) === day).sort((a, b) => { 
+  // New Grouping Logic: Single group if "All" dates selected, otherwise grouped/labelled by date
+  interface RoomGroup {
+    label?: string;
+    rooms: Room[];
+  }
+  
+  const sortRooms = (list: Room[]) => list.sort((a, b) => { 
+      // Primary Sort: Unpaid first (critical for rent management)
       if (a.status !== b.status) return a.status === 'unpaid' ? -1 : 1; 
+      // Secondary Sort: Room Number
       return a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }); 
-    }) 
-  })).filter(g => g.rooms.length > 0);
+  });
+
+  let displayGroups: RoomGroup[] = [];
+
+  if (filter.date === 'all') {
+      // Flattened list without date headers
+      displayGroups = [{ rooms: sortRooms([...filtered]) }];
+  } else {
+      // Specific date view
+      if (filtered.length > 0) {
+        displayGroups = [{
+            label: `${filter.date}号收租`,
+            rooms: sortRooms([...filtered])
+        }];
+      }
+  }
 
   const totalExpected = filtered.reduce((acc, r) => acc + calcTotal(r), 0);
   const totalCollected = filtered.filter(r => r.status === 'paid').reduce((acc, r) => acc + calcTotal(r), 0);
@@ -241,12 +261,14 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
       </div>
 
       <div className="px-4 py-4 space-y-6">
-        {grouped.map(group => (
-          <div key={group.day}>
-            <div className="flex items-center gap-2 mb-3 pl-1">
-              <span className="bg-gray-200 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded">{group.day}号收租</span>
-              <div className="h-px bg-gray-200 flex-1"></div>
-            </div>
+        {displayGroups.map((group, index) => (
+          <div key={index}>
+            {group.label && (
+              <div className="flex items-center gap-2 mb-3 pl-1">
+                <span className="bg-gray-200 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded">{group.label}</span>
+                <div className="h-px bg-gray-200 flex-1"></div>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3">
               {group.rooms.map(room => {
                 const total = calcTotal(room);
