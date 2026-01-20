@@ -235,11 +235,12 @@ export default function App() {
         }
     }
 
-    // 2. Wipe Local Data
-    localStorage.removeItem(STORAGE_KEY_DATA);
-    localStorage.removeItem(STORAGE_KEY_CONFIG);
-    localStorage.removeItem('landlord_data_v21_fresh'); // Legacy cleanup
-    
+    // 2. NUCLEAR OPTION: Clear EVERYTHING from LocalStorage
+    // This removes app data, config, AND the Supabase session token
+    // ensuring no auto-login happens on reload.
+    localStorage.clear();
+    sessionStorage.clear(); // Good practice to clear session storage too
+
     // 3. Reset React State (Visual feedback immediate)
     setHistory({ archives: [], present: [] });
     setConfig(DEFAULT_CONFIG);
