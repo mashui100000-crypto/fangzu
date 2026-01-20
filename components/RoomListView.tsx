@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   X, CheckSquare, Search, BookOpen, History, Settings, 
@@ -164,34 +165,33 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                 </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between w-full">
-              {/* Title: Hidden on small screens (<640px) to give space for buttons, shown as Short version */}
-              <div className="flex-shrink-0 hidden sm:block">
+            <div className="flex items-start justify-between w-full">
+              {/* Title - Visible on all screens, aligned with grid */}
+              <div className="flex-shrink-0 pt-2">
                 <h1 className="text-xl font-black text-gray-800">房租管家</h1>
               </div>
-              <div className="flex-shrink-0 sm:hidden pr-2">
-                <h1 className="text-xl font-black text-gray-800">房租</h1>
-              </div>
 
-              {/* Toolbar Buttons: Flex-1 to take space, justify-end to align right */}
-              <div className="flex flex-1 justify-end items-center gap-2 overflow-x-auto no-scrollbar mask-linear-fade">
-                {installPrompt && (
-                   <button onClick={onInstall} className="flex-shrink-0 flex items-center gap-1 bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap">
-                     <Download size={14}/> 安装
-                   </button>
-                )}
-                <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex-shrink-0 flex items-center gap-1 bg-white border border-blue-100 text-blue-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm whitespace-nowrap">
-                  <Cloud size={14}/> 云同步
-                </button>
-                <button onClick={openGuide} className="flex-shrink-0 flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200 whitespace-nowrap">
-                  <BookOpen size={14}/> 指南
-                </button>
-                <button onClick={() => setModal({ type: 'history' })} className="flex-shrink-0 flex items-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200 whitespace-nowrap">
-                  <History size={14}/> 历史
-                </button>
-                <button onClick={openSettings} className="flex-shrink-0 flex items-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-50 whitespace-nowrap">
-                  <Settings size={14}/> 设置
-                </button>
+              {/* Toolbar Buttons: 2-Column Grid on Mobile, Flex Row on Desktop */}
+              <div className="flex-1 flex justify-end pl-4">
+                 <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-1.5 w-auto">
+                    {installPrompt && (
+                       <button onClick={onInstall} className="flex items-center justify-center gap-1 bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap w-full sm:w-auto">
+                         <Download size={14}/> <span>安装</span>
+                       </button>
+                    )}
+                    <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex items-center justify-center gap-1 bg-white border border-blue-100 text-blue-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm whitespace-nowrap w-full sm:w-auto">
+                      <Cloud size={14}/> <span>云同步</span>
+                    </button>
+                    <button onClick={openGuide} className="flex items-center justify-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200 whitespace-nowrap w-full sm:w-auto">
+                      <BookOpen size={14}/> <span>指南</span>
+                    </button>
+                    <button onClick={() => setModal({ type: 'history' })} className="flex items-center justify-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200 whitespace-nowrap w-full sm:w-auto">
+                      <History size={14}/> <span>历史</span>
+                    </button>
+                    <button onClick={openSettings} className="flex items-center justify-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-50 whitespace-nowrap w-full sm:w-auto">
+                      <Settings size={14}/> <span>设置</span>
+                    </button>
+                 </div>
               </div>
             </div>
           )}

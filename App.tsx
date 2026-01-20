@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { safeGetStorage, calculateBillPeriod } from './utils';
@@ -225,7 +226,28 @@ export default function App() {
   };
 
   const handleCloudLogout = async () => {
-      if (cloudClient) await cloudClient.auth.signOut();
+    // 1. Force Server Logout (Try/Catch ensures we don't block if server session is already dead)
+    if (cloudClient) {
+        try {
+            await cloudClient.auth.signOut();
+        } catch (e) {
+            console.warn("Server logout returned error (likely session already invalid), forcing local logout.", e);
+        }
+    }
+
+    // 2. Wipe Local Data
+    localStorage.removeItem(STORAGE_KEY_DATA);
+    localStorage.removeItem(STORAGE_KEY_CONFIG);
+    localStorage.removeItem('landlord_data_v21_fresh'); // Legacy cleanup
+    
+    // 3. Reset React State (Visual feedback immediate)
+    setHistory({ archives: [], present: [] });
+    setConfig(DEFAULT_CONFIG);
+    setCloudUser(null);
+    setSelectedIds(new Set());
+    
+    // 4. Force Reload to Ensure Clean State ("Like new app")
+    window.location.reload();
   };
 
   // --- Calculation Helpers ---
