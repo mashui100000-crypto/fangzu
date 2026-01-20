@@ -1,39 +1,71 @@
 import React, { useState } from 'react';
-import { X, Cloud, LogIn, UserPlus, AlertCircle, HelpCircle } from 'lucide-react';
-import { AppConfig } from '../types';
+import { X, Cloud, LogIn, UserPlus, AlertCircle, Lock, Mail, KeyRound } from 'lucide-react';
 
 interface CloudAuthModalProps {
+  initialMode?: 'login' | 'signup' | 'update';
   onLogin: (email: string, pass: string, isSignup: boolean) => Promise<string | void>;
+  onUpdatePassword: (pass: string) => Promise<string | void>;
   onLogout: () => void;
   currentUser: any;
   onClose: () => void;
 }
 
 export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({ 
-  onLogin, onLogout, currentUser, onClose 
+  initialMode = 'login', onLogin, onUpdatePassword, onLogout, currentUser, onClose 
 }) => {
+  const [mode, setMode] = useState<'login' | 'signup' | 'update'>(initialMode as any);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'err' | 'success', text: string } | null>(null);
 
-  const handleAuth = async (isSignup: boolean) => {
-    if (!email || !password) return setMsg({ type: 'err', text: '请填写邮箱和密码' });
+  const clearMsg = () => setMsg(null);
+
+  const handleSubmit = async () => {
+    clearMsg();
+    
+    // --- MODE 1: Normal Update (Logged In) ---
+    if (mode === 'update') {
+        if (!password) return setMsg({ type: 'err', text: '请输入新密码' });
+        if (password !== confirmPass) return setMsg({ type: 'err', text: '两次密码输入不一致' });
+        if (password.length < 6) return setMsg({ type: 'err', text: '密码长度至少6位' });
+
+        setLoading(true);
+        try {
+            const err = await onUpdatePassword(password);
+            if (err) setMsg({ type: 'err', text: err });
+            else {
+                setMsg({ type: 'success', text: '密码修改成功，请重新登录' });
+                setTimeout(() => { onClose(); setMode('login'); }, 1500);
+            }
+        } catch(e: any) { setMsg({ type: 'err', text: e.message }); }
+        setLoading(false);
+        return;
+    }
+
+    if (!email) return setMsg({ type: 'err', text: '请填写邮箱' });
+    if (!password) return setMsg({ type: 'err', text: '请填写密码' });
+    
+    // --- MODE 2: Login / Signup ---
+    if (mode === 'signup') {
+        if (password !== confirmPass) return setMsg({ type: 'err', text: '两次密码输入不一致' });
+        if (password.length < 6) return setMsg({ type: 'err', text: '密码长度至少6位' });
+    }
     
     setLoading(true);
-    setMsg(null);
     try {
+      const isSignup = mode === 'signup';
       const res = await onLogin(email, password, isSignup);
       
       if (res === 'NEED_CONFIRMATION') {
-        setMsg({ 
-          type: 'success', 
-          text: '注册成功！请前往邮箱验证，或联系管理员后台直接通过。' 
-        });
+        setMsg({ type: 'success', text: '注册成功！请前往邮箱验证。' });
       } else if (res) {
         setMsg({ type: 'err', text: typeof res === 'string' ? res : '操作失败' });
       } else {
         setMsg({ type: 'success', text: isSignup ? '注册并登录成功' : '登录成功' });
+        if (!isSignup) onClose();
       }
     } catch (e: any) {
       setMsg({ type: 'err', text: e.message || 'Error' });
@@ -41,13 +73,27 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
     setLoading(false);
   };
 
+  const switchMode = (m: any) => {
+      setMode(m);
+      clearMsg();
+      setPassword('');
+      setConfirmPass('');
+  };
+
+  const getTitle = () => {
+      if (mode === 'update') return '重置密码';
+      if (currentUser) return '账号中心';
+      if (mode === 'signup') return '注册账号';
+      return '登录';
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6 z-[200]">
-      <div className="bg-white w-full max-w-sm rounded-xl p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+      <div className="bg-white w-full max-w-sm rounded-xl p-6 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold flex items-center gap-2">
             <Cloud className="text-blue-600"/> 
-            {currentUser ? '账号中心' : '登录/注册'}
+            {getTitle()}
           </h3>
           <button onClick={onClose}><X className="text-gray-400"/></button>
         </div>
@@ -58,7 +104,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
           </div>
         )}
 
-        {currentUser ? (
+        {currentUser && mode !== 'update' ? (
             <div className="text-center py-6">
               <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Cloud size={32}/>
@@ -72,52 +118,83 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
             </div>
         ) : (
           <div className="space-y-4">
-            <div className="p-3 bg-blue-50 text-blue-800 text-xs rounded-lg">
-               登录账号以实现多设备数据同步。
-            </div>
-            <div>
-              <label className="text-xs font-bold text-gray-400">邮箱</label>
-              <input 
-                type="email" 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                className="w-full border-b py-2 text-lg font-bold outline-none" 
-                placeholder="email@example.com"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-gray-400">密码</label>
-              <input 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                className="w-full border-b py-2 text-lg font-bold outline-none" 
-                placeholder="******"
-              />
-            </div>
             
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <button 
-                onClick={() => handleAuth(false)} 
-                disabled={loading}
-                className="py-3 bg-black text-white rounded-lg font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? '...' : <><LogIn size={16}/> 登录</>}
-              </button>
-              <button 
-                onClick={() => handleAuth(true)} 
-                disabled={loading}
-                className="py-3 border border-black text-black rounded-lg font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                <UserPlus size={16}/> 注册
-              </button>
+            {mode !== 'update' && (
+                <div>
+                  <label className="text-xs font-bold text-gray-400 mb-1 block">邮箱</label>
+                  <div className="relative">
+                      <Mail size={16} className="absolute left-0 top-3 text-gray-400"/>
+                      <input 
+                          type="email" 
+                          value={email} 
+                          onChange={e => setEmail(e.target.value)} 
+                          className="w-full border-b py-2 pl-6 text-base font-bold outline-none focus:border-blue-500 transition-colors" 
+                          placeholder="email@example.com"
+                      />
+                  </div>
+                </div>
+            )}
+
+            {/* PASSWORD INPUTS */}
+            <div className="animate-in slide-in-from-bottom-2">
+              <label className="text-xs font-bold text-gray-400 mb-1 block">
+                  {mode === 'update' ? '新密码' : '密码'}
+              </label>
+              <div className="relative">
+                  <Lock size={16} className="absolute left-0 top-3 text-gray-400"/>
+                  <input 
+                    type="password" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    className="w-full border-b py-2 pl-6 text-base font-bold outline-none focus:border-blue-500 transition-colors" 
+                    placeholder="******"
+                  />
+              </div>
             </div>
+
+            {(mode === 'signup' || mode === 'update') && (
+                <div className="animate-in slide-in-from-bottom-2">
+                  <label className="text-xs font-bold text-gray-400 mb-1 block">确认新密码</label>
+                  <div className="relative">
+                      <Lock size={16} className="absolute left-0 top-3 text-gray-400"/>
+                      <input 
+                        type="password" 
+                        value={confirmPass} 
+                        onChange={e => setConfirmPass(e.target.value)} 
+                        className="w-full border-b py-2 pl-6 text-base font-bold outline-none focus:border-blue-500 transition-colors" 
+                        placeholder="再次输入密码"
+                      />
+                  </div>
+                </div>
+            )}
             
-            <div className="mt-6 pt-4 border-t border-gray-100">
-                <h4 className="text-xs font-bold text-gray-400 mb-2 flex items-center gap-1"><HelpCircle size={12}/> 提示</h4>
-                <p className="text-[10px] text-gray-500 leading-relaxed">
-                  新用户注册后即可使用。如果遇到问题，请联系管理员。
-                </p>
+            <div className="pt-2 flex flex-col gap-2">
+                <button 
+                    onClick={handleSubmit} 
+                    disabled={loading}
+                    className="w-full py-3 bg-black text-white rounded-lg font-bold disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors"
+                >
+                    {loading ? '处理中...' : (
+                        mode === 'login' ? <><LogIn size={16}/> 登录</> : 
+                        (mode === 'signup' ? <><UserPlus size={16}/> 注册</> : 
+                        <><KeyRound size={16}/> 修改密码</>)
+                    )}
+                </button>
+            </div>
+
+            <div className="flex justify-between items-center text-xs font-bold text-gray-500 pt-2">
+                {mode === 'login' && (
+                    <div className="w-full text-center">
+                        <span className="text-gray-400 font-normal">没有账号? </span>
+                        <button onClick={() => switchMode('signup')} className="text-blue-600 hover:text-blue-700">注册新账号</button>
+                    </div>
+                )}
+                {mode === 'signup' && (
+                    <div className="w-full text-center">
+                        <span className="text-gray-400 font-normal">已有账号? </span>
+                        <button onClick={() => switchMode('login')} className="text-blue-600 hover:text-blue-700">立即登录</button>
+                    </div>
+                )}
             </div>
           </div>
         )}

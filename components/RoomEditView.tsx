@@ -96,9 +96,10 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
         <span className="font-bold text-lg text-gray-800">{room.roomNo}</span>
         <button 
           onClick={() => confirmAction("删除房间?", "确定删除此房间吗？数据可恢复。", () => actions.deleteSingle(room.id))} 
-          className="p-2 text-red-500"
+          className="flex items-center gap-1 text-red-500 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors"
         >
-          <Trash2 size={18} />
+          <Trash2 size={16} />
+          <span className="text-xs font-bold">删除</span>
         </button>
       </div>
 

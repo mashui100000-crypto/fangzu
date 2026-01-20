@@ -96,12 +96,10 @@ export default function App() {
 
   // --- Cloud Sync Logic ---
   
-  // Initialize Client using HARDCODED constants (SaaS Mode)
+  // Initialize Client
   useEffect(() => {
     const url = DEFAULT_CONFIG.supabaseUrl?.trim();
     const key = DEFAULT_CONFIG.supabaseKey?.trim();
-
-    // Check if configured properly
     const isValid = !!(url && key && url.startsWith('http') && key.length > 20);
     setIsCloudConfigured(isValid);
 
@@ -109,8 +107,26 @@ export default function App() {
       try {
         const client = createClient(url!, key!);
         setCloudClient(client);
-        
-        // Check session
+
+        const checkUrlForRecovery = () => {
+            const hash = window.location.hash;
+            const search = window.location.search;
+            if ((hash && hash.includes('access_token')) || (search && search.includes('access_token'))) {
+                 window.history.replaceState(null, '', window.location.pathname);
+                 setModal({ 
+                    type: 'genericConfirm', 
+                    title: '✅ 验证成功', 
+                    content: '您的邮箱已验证成功，系统已自动登录。', 
+                    onConfirm: () => setModal({ type: null }) 
+                });
+                return true;
+            }
+            return false;
+        };
+
+        checkUrlForRecovery();
+        window.addEventListener('hashchange', checkUrlForRecovery);
+
         client.auth.getSession().then(({ data: { session } }) => {
           setCloudUser(session?.user || null);
           if (session?.user) {
@@ -118,20 +134,23 @@ export default function App() {
           }
         });
 
-        const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
           const user = session?.user || null;
           setCloudUser(user);
           if (user) syncFromCloud(client, user.id);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+            window.removeEventListener('hashchange', checkUrlForRecovery);
+        };
       } catch (e) {
         console.error("Supabase init failed", e);
       }
     }
   }, []);
 
-  // 2. Download Data
+  // Download Data
   const syncFromCloud = async (client: SupabaseClient, userId: string) => {
     const { data, error } = await client
       .from('landlord_backup')
@@ -140,19 +159,16 @@ export default function App() {
       .single();
     
     if (data && data.data) {
-       // Cloud has data, overwrite local
        setHistory(prev => ({
            ...prev,
            present: data.data,
            archives: [{ data: data.data, desc: '云端同步', time: new Date().toISOString() }, ...prev.archives].slice(0, 50)
        }));
-    } else if (!data && !error) {
-       // No cloud data, upload local
-       syncToCloud(client, userId, history.present);
     }
+    // Note: We don't implicitly upload here anymore; the Auto Sync Effect will handle uploading local data if cloud is empty/different.
   };
 
-  // 3. Upload Data
+  // Upload Data
   const syncToCloud = async (client: SupabaseClient, userId: string, rooms: Room[]) => {
       await client.from('landlord_backup').upsert({
           user_id: userId,
@@ -161,15 +177,37 @@ export default function App() {
       });
   };
 
+  // --- AUTOMATIC CLOUD BACKUP EFFECT ---
+  // This watches for ANY change in data and uploads it to cloud after a short delay.
+  useEffect(() => {
+    if (!isLoaded || !cloudClient || !cloudUser) return;
+
+    // Debounce to prevent spamming API while typing
+    const timer = setTimeout(() => {
+        syncToCloud(cloudClient, cloudUser.id, history.present).catch(err => {
+            console.warn("Auto backup failed (network error?):", err);
+        });
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [history.present, isLoaded, cloudClient, cloudUser]);
+
+
   // --- Handlers ---
 
   const handleCloudLogin = async (email: string, pass: string, isSignup: boolean) => {
     if (!cloudClient) return '系统未配置数据库，请联系管理员。';
     
+    const redirectUrl = window.location.origin + window.location.pathname;
+    
     if (isSignup) {
-      const { data, error } = await cloudClient.auth.signUp({ email, password: pass });
+      const { data, error } = await cloudClient.auth.signUp({ 
+          email, 
+          password: pass,
+          options: { emailRedirectTo: redirectUrl } 
+      });
+
       if (error) return error.message;
-      // If email confirmation is enabled (default) and not clicked yet, session is null.
       if (data.user && !data.session) {
         return 'NEED_CONFIRMATION';
       }
@@ -178,6 +216,12 @@ export default function App() {
       const { error } = await cloudClient.auth.signInWithPassword({ email, password: pass });
       return error?.message;
     }
+  };
+
+  const handleUpdatePassword = async (pass: string) => {
+    if (!cloudClient) return '系统未配置数据库';
+    const { error } = await cloudClient.auth.updateUser({ password: pass });
+    return error?.message;
   };
 
   const handleCloudLogout = async () => {
@@ -229,18 +273,14 @@ export default function App() {
       };
   };
 
-  // --- Core State Updates with Cloud Sync ---
+  // --- Core State Updates ---
+  // Note: We removed explicit syncToCloud calls here because the useEffect above handles it automatically.
 
   const commitChange = (newRooms: Room[], desc: string) => {
     setHistory(curr => ({
       archives: [{ data: newRooms, desc, time: new Date().toISOString() }, ...curr.archives].slice(0, 50),
       present: newRooms
     }));
-    
-    // Sync to cloud if logged in
-    if (cloudClient && cloudUser) {
-        syncToCloud(cloudClient, cloudUser.id, newRooms);
-    }
   };
 
   const handleRestore = (index: number) => {
@@ -521,7 +561,9 @@ export default function App() {
 
       {modal.type === 'cloudAuth' && (
         <CloudAuthModal 
+          initialMode={modal.data?.mode}
           onLogin={handleCloudLogin}
+          onUpdatePassword={handleUpdatePassword}
           onLogout={handleCloudLogout}
           currentUser={cloudUser}
           onClose={() => setModal({ type: null })}

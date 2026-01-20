@@ -165,26 +165,32 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
             </div>
           ) : (
             <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-2">
+              {/* Title: Hidden on small screens (<640px) to give space for buttons, shown as Short version */}
+              <div className="flex-shrink-0 hidden sm:block">
                 <h1 className="text-xl font-black text-gray-800">房租管家</h1>
               </div>
-              <div className="flex gap-2">
+              <div className="flex-shrink-0 sm:hidden pr-2">
+                <h1 className="text-xl font-black text-gray-800">房租</h1>
+              </div>
+
+              {/* Toolbar Buttons: Flex-1 to take space, justify-end to align right */}
+              <div className="flex flex-1 justify-end items-center gap-2 overflow-x-auto no-scrollbar mask-linear-fade">
                 {installPrompt && (
-                   <button onClick={onInstall} className="flex items-center gap-1 bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform animate-pulse">
+                   <button onClick={onInstall} className="flex-shrink-0 flex items-center gap-1 bg-black text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap">
                      <Download size={14}/> 安装
                    </button>
                 )}
-                <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex items-center gap-1 bg-white border border-blue-100 text-blue-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm">
-                  <Cloud size={14}/>
+                <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex-shrink-0 flex items-center gap-1 bg-white border border-blue-100 text-blue-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm whitespace-nowrap">
+                  <Cloud size={14}/> 云同步
                 </button>
-                <button onClick={openGuide} className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200">
+                <button onClick={openGuide} className="flex-shrink-0 flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200 whitespace-nowrap">
                   <BookOpen size={14}/> 指南
                 </button>
-                <button onClick={() => setModal({ type: 'history' })} className="flex items-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200">
-                  <History size={14}/>
+                <button onClick={() => setModal({ type: 'history' })} className="flex-shrink-0 flex items-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200 whitespace-nowrap">
+                  <History size={14}/> 历史
                 </button>
-                <button onClick={openSettings} className="p-2 bg-white border rounded-full text-gray-600 hover:bg-gray-50 flex items-center justify-center gap-1 px-3">
-                  <Settings size={16}/>
+                <button onClick={openSettings} className="flex-shrink-0 flex items-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-50 whitespace-nowrap">
+                  <Settings size={14}/> 设置
                 </button>
               </div>
             </div>
@@ -235,7 +241,7 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                 />
                 {search.input && <button onClick={search.clear}><X size={16} className="text-gray-400"/></button>}
               </div>
-              <button onClick={search.run} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold">搜索</button>
+              <button onClick={search.run} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex-shrink-0">搜索</button>
             </div>
             {search.active && (
               <div className="flex justify-between items-center bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-100">
