@@ -40,12 +40,13 @@ export default function App() {
   // Modal State
   const [modal, setModal] = useState<ModalState>({ type: null });
 
-  // Config State
+  // Config State (Local preferences only, connection details are constants)
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
 
   // Cloud Sync State
   const [cloudClient, setCloudClient] = useState<SupabaseClient | null>(null);
   const [cloudUser, setCloudUser] = useState<any>(null);
+  const [isCloudConfigured, setIsCloudConfigured] = useState(false);
 
   // PWA Install Prompt State
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
@@ -95,11 +96,18 @@ export default function App() {
 
   // --- Cloud Sync Logic ---
   
-  // 1. Initialize Client when Config Changes
+  // Initialize Client using HARDCODED constants (SaaS Mode)
   useEffect(() => {
-    if (config.supabaseUrl && config.supabaseKey) {
+    const url = DEFAULT_CONFIG.supabaseUrl?.trim();
+    const key = DEFAULT_CONFIG.supabaseKey?.trim();
+
+    // Check if configured properly
+    const isValid = !!(url && key && url.startsWith('http') && key.length > 20);
+    setIsCloudConfigured(isValid);
+
+    if (isValid) {
       try {
-        const client = createClient(config.supabaseUrl, config.supabaseKey);
+        const client = createClient(url!, key!);
         setCloudClient(client);
         
         // Check session
@@ -121,7 +129,7 @@ export default function App() {
         console.error("Supabase init failed", e);
       }
     }
-  }, [config.supabaseUrl, config.supabaseKey]);
+  }, []);
 
   // 2. Download Data
   const syncFromCloud = async (client: SupabaseClient, userId: string) => {
@@ -156,11 +164,20 @@ export default function App() {
   // --- Handlers ---
 
   const handleCloudLogin = async (email: string, pass: string, isSignup: boolean) => {
-    if (!cloudClient) return 'Server not configured';
-    const { error } = isSignup 
-        ? await cloudClient.auth.signUp({ email, password: pass })
-        : await cloudClient.auth.signInWithPassword({ email, password: pass });
-    return error?.message;
+    if (!cloudClient) return '系统未配置数据库，请联系管理员。';
+    
+    if (isSignup) {
+      const { data, error } = await cloudClient.auth.signUp({ email, password: pass });
+      if (error) return error.message;
+      // If email confirmation is enabled (default) and not clicked yet, session is null.
+      if (data.user && !data.session) {
+        return 'NEED_CONFIRMATION';
+      }
+      return;
+    } else {
+      const { error } = await cloudClient.auth.signInWithPassword({ email, password: pass });
+      return error?.message;
+    }
   };
 
   const handleCloudLogout = async () => {
@@ -375,11 +392,13 @@ export default function App() {
   const confirmAction = (title: string, content: string, action: () => void) => {
     setModal({ type: 'genericConfirm', title, content, onConfirm: action });
   };
-
+  
   const viewHistoryRecord = (record: BillRecord) => {
      const currentRoom = history.present.find(r => r.roomNo === record.roomNo);
+     if (!currentRoom) return;
+
      const tempRoom: Room = {
-         ...currentRoom!, 
+         ...currentRoom, 
          id: record.id,
          roomNo: record.roomNo,
          rent: record.rent,
@@ -502,8 +521,6 @@ export default function App() {
 
       {modal.type === 'cloudAuth' && (
         <CloudAuthModal 
-          config={config}
-          onUpdateConfig={(cfg) => setConfig(prev => ({...prev, ...cfg}))}
           onLogin={handleCloudLogin}
           onLogout={handleCloudLogout}
           currentUser={cloudUser}
