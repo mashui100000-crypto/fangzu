@@ -57,6 +57,9 @@ export interface AppConfig {
   elecPrice: string;
   waterPrice: string;
   defaultRent: string;
+  // Cloud Sync Config
+  supabaseUrl?: string;
+  supabaseKey?: string;
 }
 
 export interface HistoryItem {
@@ -92,6 +95,7 @@ export type ModalType =
   | 'batchDate' 
   | 'genericConfirm' 
   | 'billHistory'
+  | 'cloudAuth'
   | null;
 
 export interface ModalState {

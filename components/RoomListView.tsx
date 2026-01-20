@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   X, CheckSquare, Search, BookOpen, History, Settings, 
   Building2, RotateCcw, FileText, Square, CheckCircle, Plus,
-  ListChecks, Copy, Download
+  ListChecks, Copy, Download, Cloud
 } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState, InstallPromptEvent } from '../types';
 import { getBuildingName } from '../utils';
@@ -174,6 +174,9 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                      <Download size={14}/> 安装
                    </button>
                 )}
+                <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex items-center gap-1 bg-white border border-blue-100 text-blue-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm">
+                  <Cloud size={14}/>
+                </button>
                 <button onClick={openGuide} className="flex items-center gap-1 bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200">
                   <BookOpen size={14}/> 指南
                 </button>

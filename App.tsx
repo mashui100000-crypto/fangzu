@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { safeGetStorage, calculateBillPeriod } from './utils';
 import { STORAGE_KEY_CONFIG, STORAGE_KEY_DATA, DEFAULT_CONFIG } from './constants';
 import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent, BillRecord } from './types';
@@ -17,6 +18,7 @@ import { BatchDateModal } from './components/BatchDateModal';
 import { GenericConfirmModal } from './components/GenericConfirmModal';
 import { MoveOutModal } from './components/MoveOutModal';
 import { BatchBillModal } from './components/BatchBillModal';
+import { CloudAuthModal } from './components/CloudAuthModal';
 
 export default function App() {
   // --- Core State ---
@@ -41,6 +43,10 @@ export default function App() {
   // Config State
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
 
+  // Cloud Sync State
+  const [cloudClient, setCloudClient] = useState<SupabaseClient | null>(null);
+  const [cloudUser, setCloudUser] = useState<any>(null);
+
   // PWA Install Prompt State
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
 
@@ -52,7 +58,6 @@ export default function App() {
 
       let initialRooms = safeGetStorage<Room[]>(STORAGE_KEY_DATA, []);
       if (!initialRooms || initialRooms.length === 0) {
-        // Migration support for older versions if needed
         initialRooms = safeGetStorage('landlord_data_v21_fresh', []); 
       }
       if (!Array.isArray(initialRooms)) initialRooms = [];
@@ -68,20 +73,16 @@ export default function App() {
       setIsLoaded(true);
     }
 
-    // Capture PWA install prompt
     const handler = (e: Event) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later.
       setInstallPrompt(e as InstallPromptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handler);
-
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
-  // --- Auto Save ---
+  // --- Auto Save to LocalStorage ---
   useEffect(() => {
     if (isLoaded && history.present) {
       localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(history.present));
@@ -92,7 +93,81 @@ export default function App() {
     if (isLoaded) localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
   }, [config, isLoaded]);
 
-  // --- Helper to calculate total for history ---
+  // --- Cloud Sync Logic ---
+  
+  // 1. Initialize Client when Config Changes
+  useEffect(() => {
+    if (config.supabaseUrl && config.supabaseKey) {
+      try {
+        const client = createClient(config.supabaseUrl, config.supabaseKey);
+        setCloudClient(client);
+        
+        // Check session
+        client.auth.getSession().then(({ data: { session } }) => {
+          setCloudUser(session?.user || null);
+          if (session?.user) {
+             syncFromCloud(client, session.user.id);
+          }
+        });
+
+        const { data: { subscription } } = client.auth.onAuthStateChange((_event, session) => {
+          const user = session?.user || null;
+          setCloudUser(user);
+          if (user) syncFromCloud(client, user.id);
+        });
+
+        return () => subscription.unsubscribe();
+      } catch (e) {
+        console.error("Supabase init failed", e);
+      }
+    }
+  }, [config.supabaseUrl, config.supabaseKey]);
+
+  // 2. Download Data
+  const syncFromCloud = async (client: SupabaseClient, userId: string) => {
+    const { data, error } = await client
+      .from('landlord_backup')
+      .select('data')
+      .eq('user_id', userId)
+      .single();
+    
+    if (data && data.data) {
+       // Cloud has data, overwrite local
+       setHistory(prev => ({
+           ...prev,
+           present: data.data,
+           archives: [{ data: data.data, desc: '云端同步', time: new Date().toISOString() }, ...prev.archives].slice(0, 50)
+       }));
+    } else if (!data && !error) {
+       // No cloud data, upload local
+       syncToCloud(client, userId, history.present);
+    }
+  };
+
+  // 3. Upload Data
+  const syncToCloud = async (client: SupabaseClient, userId: string, rooms: Room[]) => {
+      await client.from('landlord_backup').upsert({
+          user_id: userId,
+          data: rooms,
+          updated_at: new Date().toISOString()
+      });
+  };
+
+  // --- Handlers ---
+
+  const handleCloudLogin = async (email: string, pass: string, isSignup: boolean) => {
+    if (!cloudClient) return 'Server not configured';
+    const { error } = isSignup 
+        ? await cloudClient.auth.signUp({ email, password: pass })
+        : await cloudClient.auth.signInWithPassword({ email, password: pass });
+    return error?.message;
+  };
+
+  const handleCloudLogout = async () => {
+      if (cloudClient) await cloudClient.auth.signOut();
+  };
+
+  // --- Calculation Helpers ---
   const calculateTotal = (r: Room, cfg: AppConfig): number => {
     const getVal = (v: any) => parseFloat(v) || 0;
     const ep = r.fixedElecPrice || cfg.elecPrice;
@@ -103,9 +178,7 @@ export default function App() {
     return Math.max(0, getVal(r.rent) + Math.max(0, e) + Math.max(0, w) + extra);
   };
 
-  // --- Core Logic: Settle a Room (Shared by Batch and Single) ---
   const processSettlement = (r: Room): Room => {
-      // 1. Create history record
       const record: BillRecord = {
           id: Date.now().toString() + Math.random(),
           recordedAt: new Date().toISOString(),
@@ -122,11 +195,7 @@ export default function App() {
           tenantIdCard: r.tenantIdCard,
           roomNo: r.roomNo
       };
-
       const newHistory = [...(r.billHistory || []), record];
-
-      // 2. Use calculateBillPeriod to shift dates
-      // Ensure payDay is treated as a number
       const payDayInt = r.payDay ? parseInt(String(r.payDay)) : 1;
       const { start, end } = calculateBillPeriod(payDayInt, r.billEndDate);
       
@@ -143,13 +212,18 @@ export default function App() {
       };
   };
 
-  // --- Handlers ---
+  // --- Core State Updates with Cloud Sync ---
 
   const commitChange = (newRooms: Room[], desc: string) => {
     setHistory(curr => ({
       archives: [{ data: newRooms, desc, time: new Date().toISOString() }, ...curr.archives].slice(0, 50),
       present: newRooms
     }));
+    
+    // Sync to cloud if logged in
+    if (cloudClient && cloudUser) {
+        syncToCloud(cloudClient, cloudUser.id, newRooms);
+    }
   };
 
   const handleRestore = (index: number) => {
@@ -171,7 +245,6 @@ export default function App() {
 
   const createRoomObj = (data: Partial<Room>, index = 0): Room => {
     const payDay = typeof data.payDay === 'number' ? data.payDay : 1;
-    // Calculate initial dates based on payDay
     const { start, end } = calculateBillPeriod(payDay);
 
     return {
@@ -257,16 +330,11 @@ export default function App() {
 
     newMonth: (targetDay) => {
       const updated = history.present.map(r => {
-        // Strict Type Conversion for Comparison
-        // targetDay can be 'all' or a number.
-        // r.payDay might be a string ("1") in storage or a number (1).
-        
         if (targetDay !== 'all') {
             const rDay = r.payDay ? parseInt(String(r.payDay)) : 1;
             const tDay = parseInt(String(targetDay));
             if (rDay !== tDay) return r;
         }
-        
         return processSettlement(r);
       });
       commitChange(updated, "批量开启新月份");
@@ -276,19 +344,13 @@ export default function App() {
     settleSingleRoom: (id: string) => {
         const target = history.present.find(r => r.id === id);
         if (!target) return;
-
-        const updated = history.present.map(r => {
-            if (r.id !== id) return r;
-            return processSettlement(r);
-        });
-
+        const updated = history.present.map(r => r.id !== id ? r : processSettlement(r));
         commitChange(updated, `单个结算: ${target.roomNo}`);
     },
 
     moveOut: (id, returnDeposit) => {
       const target = history.present.find(r => r.id === id);
       if (!target) return;
-      
       const updated: Room = { 
         ...target, 
         deposit: returnDeposit ? '0' : target.deposit, 
@@ -298,7 +360,6 @@ export default function App() {
         status: 'unpaid', 
         extraFees: [] 
       };
-      
       commitChange(
         history.present.map(r => r.id === id ? updated : r), 
         `房间 ${target.roomNo} 退租`
@@ -315,13 +376,10 @@ export default function App() {
     setModal({ type: 'genericConfirm', title, content, onConfirm: action });
   };
 
-  // Convert a BillRecord to a temporary Room object for viewing in the standard modal
   const viewHistoryRecord = (record: BillRecord) => {
-     // Find the current room config
      const currentRoom = history.present.find(r => r.roomNo === record.roomNo);
-     
      const tempRoom: Room = {
-         ...currentRoom!, // inherit static props like prices
+         ...currentRoom!, 
          id: record.id,
          roomNo: record.roomNo,
          rent: record.rent,
@@ -334,7 +392,6 @@ export default function App() {
          billEndDate: record.endDate,
          tenantName: record.tenantName,
          tenantIdCard: record.tenantIdCard,
-         // Dummy required fields
          deposit: '0', 
          payDay: 1, 
          status: 'paid',
@@ -440,6 +497,17 @@ export default function App() {
           content={modal.content}
           onConfirm={() => { modal.onConfirm!(); setModal({ type: null }); }}
           onCancel={() => setModal({ type: null })}
+        />
+      )}
+
+      {modal.type === 'cloudAuth' && (
+        <CloudAuthModal 
+          config={config}
+          onUpdateConfig={(cfg) => setConfig(prev => ({...prev, ...cfg}))}
+          onLogin={handleCloudLogin}
+          onLogout={handleCloudLogout}
+          currentUser={cloudUser}
+          onClose={() => setModal({ type: null })}
         />
       )}
     </div>
