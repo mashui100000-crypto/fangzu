@@ -1,14 +1,14 @@
+
 import React, { useState, useMemo } from 'react';
 import { X, Copy, Calendar, ArrowRight } from 'lucide-react';
-import { Room, AppConfig } from '../types';
+import { Room } from '../types';
 
 interface BatchBillModalProps {
   rooms: Room[];
-  config: AppConfig;
   onClose: () => void;
 }
 
-export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, config, onClose }) => {
+export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, onClose }) => {
   // Dates default to empty so user can select without deleting
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -31,13 +31,15 @@ export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, config, o
         const ePrev = getVal(room.elecPrev);
         const eCurr = getVal(room.elecCurr);
         const eUsage = eCurr - ePrev;
-        const ePrice = getVal(room.fixedElecPrice || config.elecPrice);
+        // Fallback to 0 if not set
+        const ePrice = getVal(room.fixedElecPrice || 0);
         const eTotal = Math.max(0, eUsage * ePrice);
         
         const wPrev = getVal(room.waterPrev);
         const wCurr = getVal(room.waterCurr);
         const wUsage = wCurr - wPrev;
-        const wPrice = getVal(room.fixedWaterPrice || config.waterPrice);
+        // Fallback to 0 if not set
+        const wPrice = getVal(room.fixedWaterPrice || 0);
         const wTotal = Math.max(0, wUsage * wPrice);
         
         const xTotal = (room.extraFees || []).reduce((s, i) => s + getVal(i.amount), 0);
@@ -53,7 +55,7 @@ export const BatchBillModal: React.FC<BatchBillModalProps> = ({ rooms, config, o
         (depositVal > 0 ? `(已收押金：${depositVal}元)\n` : '') + 
         `----------------\n`;
     }).join('\n');
-  }, [rooms, config, dateStr]);
+  }, [rooms, dateStr]);
 
   const copyAll = () => {
     navigator.clipboard.writeText(textContent).then(() => alert("全部账单已复制"));

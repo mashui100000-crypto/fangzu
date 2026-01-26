@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone, History, CreditCard } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState } from '../types';
@@ -25,8 +26,10 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   }
 
   const getVal = (v: any) => parseFloat(v) || 0;
-  const elecPrice = room.fixedElecPrice || config.elecPrice;
-  const waterPrice = room.fixedWaterPrice || config.waterPrice;
+  // Requirement 2: Utility prices are now per-room only. Default to 0 if not set.
+  const elecPrice = room.fixedElecPrice || '0';
+  const waterPrice = room.fixedWaterPrice || '0';
+  
   const elecUsage = getVal(room.elecCurr) - getVal(room.elecPrev);
   const elecTotal = Math.max(0, elecUsage * getVal(elecPrice));
   const waterUsage = getVal(room.waterCurr) - getVal(room.waterPrev);
@@ -85,7 +88,7 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
 
   // Validation Logic
   const isPhoneValid = !room.tenantPhone || /^\d{11}$/.test(room.tenantPhone);
-  const isIdCardValid = !room.tenantIdCard || /^.{18}$/.test(room.tenantIdCard); // Strictly check for 18 characters
+  const isIdCardValid = !room.tenantIdCard || /^.{18}$/.test(room.tenantIdCard); 
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
@@ -109,7 +112,6 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
           <div className="text-5xl font-black text-blue-900 font-mono tracking-tighter">¥{grandTotal.toLocaleString()}</div>
           <div className="absolute top-2 right-3 text-blue-300 text-xs font-bold bg-white/50 px-2 py-1 rounded-lg">押金: {room.deposit || 0}</div>
           
-          {/* History Button */}
           <button 
             onClick={() => setModal({ type: 'billHistory', data: room })}
             className="absolute top-2 left-3 text-blue-400 hover:text-blue-600 p-1 bg-white/50 rounded-lg flex items-center gap-1 text-xs font-bold"
@@ -166,15 +168,15 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
           </div>
         </div>
 
-        {/* Room Details Grid - 2x2 Layout */}
+        {/* Room Details Grid */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">房租(元)</label>
-            <input type="number" value={room.rent || ''} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="0" />
+            <input type="number" value={room.rent || ''} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">押金(元)</label>
-            <input type="number" value={room.deposit || ''} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="0" />
+            <input type="number" value={room.deposit || ''} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">入住日期</label>
@@ -192,7 +194,7 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
               value={room.payDay || ''} 
               onChange={(e) => handleChange('payDay', parseInt(e.target.value))} 
               className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" 
-              placeholder="1" 
+              placeholder="" 
             />
           </div>
         </div>
@@ -229,11 +231,23 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
-            <div className="flex justify-between mb-3">
+          <div className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm relative">
+            <div className="flex justify-between mb-3 items-center">
               <div className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                <Zap size={16} className="text-yellow-500"/> 电费 <span className="text-xs text-gray-400">({elecPrice}/度)</span>
+                <Zap size={16} className="text-yellow-500"/> 电费
               </div>
+              
+              {/* Requirement 2: Editable Unit Price, no placeholder */}
+              <div className="flex items-center gap-1 bg-yellow-50 px-2 py-1 rounded">
+                <span className="text-[10px] font-bold text-yellow-700">单价:</span>
+                <input 
+                    type="number" 
+                    value={room.fixedElecPrice || ''} 
+                    onChange={e => handleChange('fixedElecPrice', e.target.value)}
+                    className="w-12 bg-transparent text-xs font-bold text-yellow-700 outline-none border-b border-yellow-200 text-right"
+                />
+              </div>
+
               <span className="font-bold text-yellow-600">¥{elecTotal.toFixed(1)}</span>
             </div>
             <div className="flex gap-4">
@@ -249,10 +263,22 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
           </div>
 
           <div className="bg-white border border-gray-100 p-4 rounded-xl shadow-sm">
-            <div className="flex justify-between mb-3">
+            <div className="flex justify-between mb-3 items-center">
               <div className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                <Droplets size={16} className="text-blue-500"/> 水费 <span className="text-xs text-gray-400">({waterPrice}/吨)</span>
+                <Droplets size={16} className="text-blue-500"/> 水费
               </div>
+
+               {/* Requirement 2: Editable Unit Price, no placeholder */}
+               <div className="flex items-center gap-1 bg-blue-50 px-2 py-1 rounded">
+                <span className="text-[10px] font-bold text-blue-700">单价:</span>
+                <input 
+                    type="number" 
+                    value={room.fixedWaterPrice || ''} 
+                    onChange={e => handleChange('fixedWaterPrice', e.target.value)}
+                    className="w-12 bg-transparent text-xs font-bold text-blue-700 outline-none border-b border-blue-200 text-right"
+                />
+              </div>
+
               <span className="font-bold text-blue-600">¥{waterTotal.toFixed(1)}</span>
             </div>
             <div className="flex gap-4">

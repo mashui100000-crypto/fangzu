@@ -10,7 +10,6 @@ import { RoomListView } from './components/RoomListView';
 import { RoomEditView } from './components/RoomEditView';
 import { UserGuideView } from './components/UserGuideView';
 import { AddRoomModal } from './components/AddRoomModal';
-import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
 import { BillPreviewModal } from './components/BillPreviewModal';
 import { BillHistoryModal } from './components/BillHistoryModal';
@@ -25,7 +24,7 @@ export default function App() {
   // --- Core State ---
   const [history, setHistory] = useState<HistoryState>({ archives: [], present: [] });
   const [isLoaded, setIsLoaded] = useState(false);
-  const [view, setView] = useState<'list' | 'edit' | 'add' | 'settings' | 'guide'>('list');
+  const [view, setView] = useState<'list' | 'edit' | 'add' | 'guide'>('list');
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
 
   // Search & Filter
@@ -54,103 +53,96 @@ export default function App() {
 
   // --- Initialization ---
   useEffect(() => {
-    try {
+    const initApp = async () => {
+      // 1. Load Local Config (Settings)
       const savedConfig = safeGetStorage(STORAGE_KEY_CONFIG, null);
       if (savedConfig) setConfig(savedConfig);
 
-      let initialRooms = safeGetStorage<Room[]>(STORAGE_KEY_DATA, []);
-      if (!initialRooms || initialRooms.length === 0) {
-        initialRooms = safeGetStorage('landlord_data_v21_fresh', []); 
+      // 2. Setup Cloud & Check Auth
+      const url = DEFAULT_CONFIG.supabaseUrl?.trim();
+      const key = DEFAULT_CONFIG.supabaseKey?.trim();
+      const hasCloud = !!(url && key && url.startsWith('http'));
+      setIsCloudConfigured(hasCloud);
+
+      if (hasCloud) {
+        try {
+          const client = createClient(url!, key!);
+          setCloudClient(client);
+
+          // Auth Check
+          const { data: { session } } = await client.auth.getSession();
+          if (session?.user) {
+            // Logged In: Load Data from LocalStorage (Cache) then Sync
+            setCloudUser(session.user);
+            let initialRooms = safeGetStorage<Room[]>(STORAGE_KEY_DATA, []);
+            if (!Array.isArray(initialRooms)) initialRooms = [];
+            setHistory({
+              archives: [{ data: initialRooms, desc: '初始状态', time: new Date().toISOString() }],
+              present: initialRooms
+            });
+            
+            // Trigger Sync
+            syncFromCloud(client, session.user.id);
+
+            // Listen for Auth Changes
+            const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
+              setCloudUser(session?.user || null);
+              if (event === 'SIGNED_OUT') {
+                 // Wipe data immediately on logout event
+                 setHistory({ archives: [], present: [] });
+              }
+            });
+            // Cleanup subscription handled globally/implicit for this effect logic
+          } else {
+            // Not Logged In: EMPTY STATE (Requirement 1)
+            // We do NOT load localStorage data if user is not logged in.
+            setHistory({ archives: [], present: [] });
+            setView('list'); 
+          }
+        } catch (e) {
+           console.error("Auth check failed", e);
+           // Fallback: If auth fails entirely, assume safe mode (empty)
+           setHistory({ archives: [], present: [] });
+        }
+      } else {
+         // No Cloud Config: Load Local (Pure Offline Mode)
+         let initialRooms = safeGetStorage<Room[]>(STORAGE_KEY_DATA, []);
+         if (!Array.isArray(initialRooms)) initialRooms = [];
+         setHistory({
+            archives: [{ data: initialRooms, desc: '初始状态', time: new Date().toISOString() }],
+            present: initialRooms
+         });
+         if (initialRooms.length === 0) setView('guide');
       }
-      if (!Array.isArray(initialRooms)) initialRooms = [];
 
-      setHistory({
-        archives: [{ data: initialRooms, desc: '初始状态', time: new Date().toISOString() }],
-        present: initialRooms
-      });
+      setIsLoaded(true);
+    };
 
-      if (initialRooms.length === 0) setView('guide');
-      setIsLoaded(true);
-    } catch (e) {
-      setIsLoaded(true);
-    }
+    initApp();
 
     const handler = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e as InstallPromptEvent);
     };
-
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
+  }, []); // Only run once on mount
 
   // --- Auto Save to LocalStorage ---
+  // Only save if logged in or using offline mode
   useEffect(() => {
     if (isLoaded && history.present) {
-      localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(history.present));
+      if (cloudUser || !isCloudConfigured) {
+         localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(history.present));
+      }
     }
-  }, [history.present, isLoaded]);
+  }, [history.present, isLoaded, cloudUser, isCloudConfigured]);
 
   useEffect(() => {
     if (isLoaded) localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
   }, [config, isLoaded]);
 
   // --- Cloud Sync Logic ---
-  
-  // Initialize Client
-  useEffect(() => {
-    const url = DEFAULT_CONFIG.supabaseUrl?.trim();
-    const key = DEFAULT_CONFIG.supabaseKey?.trim();
-    const isValid = !!(url && key && url.startsWith('http') && key.length > 20);
-    setIsCloudConfigured(isValid);
-
-    if (isValid) {
-      try {
-        const client = createClient(url!, key!);
-        setCloudClient(client);
-
-        const checkUrlForRecovery = () => {
-            const hash = window.location.hash;
-            const search = window.location.search;
-            if ((hash && hash.includes('access_token')) || (search && search.includes('access_token'))) {
-                 window.history.replaceState(null, '', window.location.pathname);
-                 setModal({ 
-                    type: 'genericConfirm', 
-                    title: '✅ 验证成功', 
-                    content: '您的邮箱已验证成功，系统已自动登录。', 
-                    onConfirm: () => setModal({ type: null }) 
-                });
-                return true;
-            }
-            return false;
-        };
-
-        checkUrlForRecovery();
-        window.addEventListener('hashchange', checkUrlForRecovery);
-
-        client.auth.getSession().then(({ data: { session } }) => {
-          setCloudUser(session?.user || null);
-          if (session?.user) {
-             syncFromCloud(client, session.user.id);
-          }
-        });
-
-        const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
-          const user = session?.user || null;
-          setCloudUser(user);
-          if (user) syncFromCloud(client, user.id);
-        });
-
-        return () => {
-            subscription.unsubscribe();
-            window.removeEventListener('hashchange', checkUrlForRecovery);
-        };
-      } catch (e) {
-        console.error("Supabase init failed", e);
-      }
-    }
-  }, []);
-
   // Download Data
   const syncFromCloud = async (client: SupabaseClient, userId: string) => {
     const { data, error } = await client
@@ -166,7 +158,6 @@ export default function App() {
            archives: [{ data: data.data, desc: '云端同步', time: new Date().toISOString() }, ...prev.archives].slice(0, 50)
        }));
     }
-    // Note: We don't implicitly upload here anymore; the Auto Sync Effect will handle uploading local data if cloud is empty/different.
   };
 
   // Upload Data
@@ -179,42 +170,35 @@ export default function App() {
   };
 
   // --- AUTOMATIC CLOUD BACKUP EFFECT ---
-  // This watches for ANY change in data and uploads it to cloud after a short delay.
   useEffect(() => {
     if (!isLoaded || !cloudClient || !cloudUser) return;
-
-    // Debounce to prevent spamming API while typing
     const timer = setTimeout(() => {
         syncToCloud(cloudClient, cloudUser.id, history.present).catch(err => {
-            console.warn("Auto backup failed (network error?):", err);
+            console.warn("Auto backup failed:", err);
         });
     }, 2000);
-
     return () => clearTimeout(timer);
   }, [history.present, isLoaded, cloudClient, cloudUser]);
 
 
   // --- Handlers ---
-
   const handleCloudLogin = async (email: string, pass: string, isSignup: boolean) => {
-    if (!cloudClient) return '系统未配置数据库，请联系管理员。';
-    
+    if (!cloudClient) return '系统未配置数据库';
     const redirectUrl = window.location.origin + window.location.pathname;
     
     if (isSignup) {
       const { data, error } = await cloudClient.auth.signUp({ 
-          email, 
-          password: pass,
-          options: { emailRedirectTo: redirectUrl } 
+          email, password: pass, options: { emailRedirectTo: redirectUrl } 
       });
-
       if (error) return error.message;
-      if (data.user && !data.session) {
-        return 'NEED_CONFIRMATION';
-      }
+      if (data.user && !data.session) return 'NEED_CONFIRMATION';
       return;
     } else {
       const { error } = await cloudClient.auth.signInWithPassword({ email, password: pass });
+      if (!error) {
+        // Force reload to trigger initApp cleanly with session
+        window.location.reload(); 
+      }
       return error?.message;
     }
   };
@@ -226,36 +210,23 @@ export default function App() {
   };
 
   const handleCloudLogout = async () => {
-    // 1. Force Server Logout (Try/Catch ensures we don't block if server session is already dead)
     if (cloudClient) {
-        try {
-            await cloudClient.auth.signOut();
-        } catch (e) {
-            console.warn("Server logout returned error (likely session already invalid), forcing local logout.", e);
-        }
+        try { await cloudClient.auth.signOut(); } catch (e) {}
     }
-
-    // 2. NUCLEAR OPTION: Clear EVERYTHING from LocalStorage
-    // This removes app data, config, AND the Supabase session token
-    // ensuring no auto-login happens on reload.
     localStorage.clear();
-    sessionStorage.clear(); // Good practice to clear session storage too
-
-    // 3. Reset React State (Visual feedback immediate)
+    sessionStorage.clear();
     setHistory({ archives: [], present: [] });
     setConfig(DEFAULT_CONFIG);
     setCloudUser(null);
     setSelectedIds(new Set());
-    
-    // 4. Force Reload to Ensure Clean State ("Like new app")
     window.location.reload();
   };
 
-  // --- Calculation Helpers ---
-  const calculateTotal = (r: Room, cfg: AppConfig): number => {
+  // --- Calculation Helpers (Requirement 2 & 3: No Global Config Fallback) ---
+  const calculateTotal = (r: Room): number => {
     const getVal = (v: any) => parseFloat(v) || 0;
-    const ep = r.fixedElecPrice || cfg.elecPrice;
-    const wp = r.fixedWaterPrice || cfg.waterPrice;
+    const ep = r.fixedElecPrice || '0';
+    const wp = r.fixedWaterPrice || '0';
     const e = (getVal(r.elecCurr) - getVal(r.elecPrev)) * getVal(ep);
     const w = (getVal(r.waterCurr) - getVal(r.waterPrev)) * getVal(wp);
     const extra = (r.extraFees || []).reduce((sum, item) => sum + getVal(item.amount), 0);
@@ -274,7 +245,7 @@ export default function App() {
           waterPrev: r.waterPrev,
           waterCurr: r.waterCurr,
           extraFees: [...(r.extraFees || [])],
-          total: calculateTotal(r, config),
+          total: calculateTotal(r),
           tenantName: r.tenantName,
           tenantIdCard: r.tenantIdCard,
           roomNo: r.roomNo
@@ -297,8 +268,6 @@ export default function App() {
   };
 
   // --- Core State Updates ---
-  // Note: We removed explicit syncToCloud calls here because the useEffect above handles it automatically.
-
   const commitChange = (newRooms: Room[], desc: string) => {
     setHistory(curr => ({
       archives: [{ data: newRooms, desc, time: new Date().toISOString() }, ...curr.archives].slice(0, 50),
@@ -318,9 +287,7 @@ export default function App() {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
+    if (outcome === 'accepted') setInstallPrompt(null);
   };
 
   const createRoomObj = (data: Partial<Room>, index = 0): Room => {
@@ -459,7 +426,7 @@ export default function App() {
   const viewHistoryRecord = (record: BillRecord) => {
      const currentRoom = history.present.find(r => r.roomNo === record.roomNo);
      if (!currentRoom) return;
-
+     // Reconstruct temp room for preview
      const tempRoom: Room = {
          ...currentRoom, 
          id: record.id,
@@ -493,7 +460,6 @@ export default function App() {
           filter={{ building: activeBuilding, setBuilding: setActiveBuilding, date: activeDateTab, setDate: setActiveDateTab }}
           batch={{ isMode: isSelectionMode, setMode: setIsSelectionMode, ids: selectedIds, setIds: setSelectedIds }}
           actions={actions}
-          openSettings={() => setView('settings')}
           openGuide={() => setView('guide')}
           navigate={(v, id) => { setView(v); if (id) setActiveRoomId(id); }}
           setModal={setModal}
@@ -501,6 +467,7 @@ export default function App() {
           config={config}
           installPrompt={installPrompt}
           onInstall={handleInstallApp}
+          cloudUser={cloudUser}
         />
       )}
 
@@ -527,17 +494,13 @@ export default function App() {
         />
       )}
 
-      {view === 'settings' && (
-        <SettingsModal config={config} setConfig={setConfig} onClose={() => setView('list')} />
-      )}
-
       {/* Modals */}
       {modal.type === 'history' && (
         <HistoryModal archives={history.archives} onRestore={handleRestore} onClose={() => setModal({ type: null })} />
       )}
       
       {modal.type === 'bill' && modal.data && (
-        <BillPreviewModal room={modal.data} config={config} onClose={() => setModal({ type: null })} />
+        <BillPreviewModal room={modal.data} onClose={() => setModal({ type: null })} />
       )}
 
       {modal.type === 'billHistory' && modal.data && (
@@ -551,7 +514,6 @@ export default function App() {
       {modal.type === 'batchBill' && modal.data && (
         <BatchBillModal 
           rooms={history.present.filter(r => modal.data.includes(r.id)).sort((a,b) => a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }))} 
-          config={config} 
           onClose={() => setModal({ type: null })} 
         />
       )}

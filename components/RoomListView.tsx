@@ -1,9 +1,9 @@
 
 import React from 'react';
 import { 
-  X, CheckSquare, Search, BookOpen, History, Settings, 
+  X, CheckSquare, Search, BookOpen, History, 
   Building2, RotateCcw, FileText, Square, CheckCircle, Plus,
-  ListChecks, Copy, Download, Cloud
+  ListChecks, Copy, Download, Cloud, AlertCircle, Check
 } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState, InstallPromptEvent } from '../types';
 import { getBuildingName } from '../utils';
@@ -30,7 +30,6 @@ interface RoomListViewProps {
     setIds: (v: Set<string>) => void;
   };
   actions: ActionHandlers;
-  openSettings: () => void;
   openGuide: () => void;
   navigate: (view: 'list' | 'edit' | 'add', id?: string) => void;
   setModal: React.Dispatch<React.SetStateAction<ModalState>>;
@@ -38,17 +37,18 @@ interface RoomListViewProps {
   config: AppConfig;
   installPrompt: InstallPromptEvent | null;
   onInstall: () => void;
+  cloudUser: any;
 }
 
 export const RoomListView: React.FC<RoomListViewProps> = ({ 
   rooms, search, filter, batch, actions, navigate, 
-  setModal, openSettings, openGuide, confirmAction, config,
-  installPrompt, onInstall
+  setModal, openGuide, confirmAction, config,
+  installPrompt, onInstall, cloudUser
 }) => {
   const calcTotal = (r: Room) => {
     const getVal = (v: any) => parseFloat(v) || 0;
-    const ep = r.fixedElecPrice || config.elecPrice;
-    const wp = r.fixedWaterPrice || config.waterPrice;
+    const ep = r.fixedElecPrice || '0';
+    const wp = r.fixedWaterPrice || '0';
     const e = (getVal(r.elecCurr) - getVal(r.elecPrev)) * getVal(ep);
     const w = (getVal(r.waterCurr) - getVal(r.waterPrev)) * getVal(wp);
     const extra = (r.extraFees || []).reduce((sum, item) => sum + getVal(item.amount), 0);
@@ -64,26 +64,21 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
   
   const allPayDays = [...new Set(rooms.map(r => r.payDay || 1))].sort((a, b) => Number(a) - Number(b));
   
-  // New Grouping Logic: Single group if "All" dates selected, otherwise grouped/labelled by date
+  // Grouping Logic
   interface RoomGroup {
     label?: string;
     rooms: Room[];
   }
   
   const sortRooms = (list: Room[]) => list.sort((a, b) => { 
-      // Primary Sort: Unpaid first (critical for rent management)
       if (a.status !== b.status) return a.status === 'unpaid' ? -1 : 1; 
-      // Secondary Sort: Room Number
       return a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }); 
   });
 
   let displayGroups: RoomGroup[] = [];
-
   if (filter.date === 'all') {
-      // Flattened list without date headers
       displayGroups = [{ rooms: sortRooms([...filtered]) }];
   } else {
-      // Specific date view
       if (filtered.length > 0) {
         displayGroups = [{
             label: `${filter.date}号收租`,
@@ -104,14 +99,11 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
   const handleSelectAll = () => {
       const allFilteredIds = filtered.map(r => r.id);
       const isAllSelected = allFilteredIds.every(id => batch.ids.has(id));
-      
       if (isAllSelected) {
-          // Deselect all current filtered
           const newSet = new Set(batch.ids);
           allFilteredIds.forEach(id => newSet.delete(id));
           batch.setIds(newSet);
       } else {
-          // Select all current filtered
           const newSet = new Set(batch.ids);
           allFilteredIds.forEach(id => newSet.add(id));
           batch.setIds(newSet);
@@ -125,6 +117,19 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
   return (
     <div className="pb-24">
       <div className="sticky top-0 z-30 bg-[#F5F7FA]/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+        
+        {/* Auth Status Banner - Requirement 1 */}
+        <div 
+          onClick={() => setModal({ type: 'cloudAuth' })}
+          className={`px-4 py-1.5 flex items-center justify-center gap-2 text-xs font-bold cursor-pointer transition-colors ${cloudUser ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600 animate-pulse'}`}
+        >
+          {cloudUser ? (
+            <><Check size={12}/> 已登录: {cloudUser.email}</>
+          ) : (
+            <><AlertCircle size={12}/> 未登录 (数据不保存) - 点击登录</>
+          )}
+        </div>
+
         <div className="px-4 py-3">
           {batch.isMode ? (
             <div className="flex flex-col gap-2">
@@ -166,12 +171,10 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
             </div>
           ) : (
             <div className="flex items-start justify-between w-full">
-              {/* Title - Visible on all screens, aligned with grid */}
               <div className="flex-shrink-0 pt-2">
                 <h1 className="text-xl font-black text-gray-800">房租管家</h1>
               </div>
 
-              {/* Toolbar Buttons: 2-Column Grid on Mobile, Flex Row on Desktop */}
               <div className="flex-1 flex justify-end pl-4">
                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-1.5 w-auto">
                     {installPrompt && (
@@ -187,9 +190,6 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                     </button>
                     <button onClick={() => setModal({ type: 'history' })} className="flex items-center justify-center gap-1 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200 whitespace-nowrap w-full sm:w-auto">
                       <History size={14}/> <span>历史</span>
-                    </button>
-                    <button onClick={openSettings} className="flex items-center justify-center gap-1 bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-gray-50 whitespace-nowrap w-full sm:w-auto">
-                      <Settings size={14}/> <span>设置</span>
                     </button>
                  </div>
               </div>
@@ -243,12 +243,6 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
               </div>
               <button onClick={search.run} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold flex-shrink-0">搜索</button>
             </div>
-            {search.active && (
-              <div className="flex justify-between items-center bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-100">
-                <span className="text-xs text-yellow-800 font-bold">🔍 搜索 "{search.active}"，找到 {filtered.length} 个房间</span>
-                <button onClick={search.clear} className="text-xs text-yellow-600 underline">清空</button>
-              </div>
-            )}
             
             {!batch.isMode && (
                 <div className="flex justify-between items-center pt-2 border-t border-gray-50">
@@ -332,7 +326,8 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
         {filtered.length === 0 && (
           <div className="text-center text-gray-400 py-20 flex flex-col items-center">
             <FileText size={48} className="mx-auto text-gray-200 mb-2"/>
-            <p>没有找到相关房间</p>
+            <p className="font-bold text-gray-500 mb-2">没有数据</p>
+            {!cloudUser && <p className="text-xs text-red-400">请先登录云同步账号</p>}
           </div>
         )}
       </div>

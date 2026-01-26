@@ -1,15 +1,15 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, FileText, Download } from 'lucide-react';
-import { Room, AppConfig } from '../types';
+import { Room } from '../types';
 import { calculateBillPeriod } from '../utils';
 
 interface BillPreviewModalProps {
   room: Room;
-  config: AppConfig;
   onClose: () => void;
 }
 
-export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, config, onClose }) => {
+export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, onClose }) => {
   const [mode, setMode] = useState<'text' | 'image'>('text');
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -23,12 +23,10 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, config
   
   const [endDate] = useState(() => {
     if (room.billEndDate) return room.billEndDate;
-    // Recalculate end based on start to ensure they align if start was just generated
     if (!room.billStartDate) {
          const { end } = calculateBillPeriod(room.payDay || 1);
          return end;
     }
-    // Fallback if only start date existed in room (unlikely)
     const start = new Date(room.billStartDate);
     const end = new Date(start);
     end.setMonth(end.getMonth() + 1);
@@ -40,14 +38,16 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, config
   const ePrev = getVal(room.elecPrev);
   const eCurr = getVal(room.elecCurr);
   const eUsage = eCurr - ePrev;
-  const ePrice = getVal(room.fixedElecPrice || config.elecPrice);
+  // Fallback to 0 if not set
+  const ePrice = getVal(room.fixedElecPrice || 0);
   const eTotal = Math.max(0, eUsage * ePrice);
   const hasElec = eUsage > 0 || room.elecCurr !== '';
   
   const wPrev = getVal(room.waterPrev);
   const wCurr = getVal(room.waterCurr);
   const wUsage = wCurr - wPrev;
-  const wPrice = getVal(room.fixedWaterPrice || config.waterPrice);
+  // Fallback to 0 if not set
+  const wPrice = getVal(room.fixedWaterPrice || 0);
   const wTotal = Math.max(0, wUsage * wPrice);
   const hasWater = wUsage > 0 || room.waterCurr !== '';
   
@@ -251,7 +251,7 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, config
       
       setImgSrc(canvasRef.current.toDataURL("image/png"));
     }
-  }, [mode, room, config, dateStr, eTotal, eUsage, total, wTotal, wUsage, ePrev, eCurr, wPrev, wCurr, depositVal, hasElec, hasWater, ePrice, wPrice]);
+  }, [mode, room, dateStr, eTotal, eUsage, total, wTotal, wUsage, ePrev, eCurr, wPrev, wCurr, depositVal, hasElec, hasWater, ePrice, wPrice]);
 
   const downloadImage = () => {
     if (imgSrc) {

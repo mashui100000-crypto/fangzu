@@ -54,8 +54,6 @@ export interface Room {
 }
 
 export interface AppConfig {
-  elecPrice: string;
-  waterPrice: string;
   defaultRent: string;
   // Cloud Sync Config
   supabaseUrl?: string;

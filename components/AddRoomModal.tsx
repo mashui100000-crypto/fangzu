@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ArrowLeft, X, Trash2 } from 'lucide-react';
 import { AppConfig, Room } from '../types';
@@ -150,7 +151,7 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-400 uppercase">押金(元)</label>
-                  <input type="number" className="w-full font-bold border-b py-1 outline-none" placeholder="0" value={data.deposit} onChange={e => handleChange('deposit', e.target.value)} />
+                  <input type="number" className="w-full font-bold border-b py-1 outline-none" placeholder="" value={data.deposit} onChange={e => handleChange('deposit', e.target.value)} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -178,8 +179,8 @@ export const AddRoomModal: React.FC<AddRoomModalProps> = ({
               <div className="bg-gray-50 p-3 rounded-lg mt-2 border border-gray-100">
                 <p className="text-xs font-bold text-gray-500 mb-2">💰 独立水电 (选填)</p>
                 <div className="flex gap-3">
-                  <input placeholder={`电:${config.elecPrice}`} className="w-full bg-white border rounded px-2 py-1.5 text-sm" value={data.fixedElecPrice} onChange={e => handleChange('fixedElecPrice', e.target.value)} />
-                  <input placeholder={`水:${config.waterPrice}`} className="w-full bg-white border rounded px-2 py-1.5 text-sm" value={data.fixedWaterPrice} onChange={e => handleChange('fixedWaterPrice', e.target.value)} />
+                  <input placeholder="电费单价" className="w-full bg-white border rounded px-2 py-1.5 text-sm" value={data.fixedElecPrice} onChange={e => handleChange('fixedElecPrice', e.target.value)} />
+                  <input placeholder="水费单价" className="w-full bg-white border rounded px-2 py-1.5 text-sm" value={data.fixedWaterPrice} onChange={e => handleChange('fixedWaterPrice', e.target.value)} />
                 </div>
               </div>
             </div>

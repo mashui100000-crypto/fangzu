@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { X, Cloud, LogIn, UserPlus, AlertCircle, Lock, Mail, KeyRound } from 'lucide-react';
+import { X, Cloud, LogIn, UserPlus, AlertCircle, Lock, Mail, KeyRound, LogOut, Trash2 } from 'lucide-react';
 
 interface CloudAuthModalProps {
   initialMode?: 'login' | 'signup' | 'update';
@@ -20,6 +21,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
   
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'err' | 'success', text: string } | null>(null);
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
   const clearMsg = () => setMsg(null);
 
@@ -112,9 +114,33 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
               <p className="font-bold text-lg text-gray-800">已登录</p>
               <p className="text-sm text-gray-500 mb-6">{currentUser.email}</p>
               <p className="text-xs text-blue-500 bg-blue-50 p-2 rounded mb-6">您的数据正在自动同步到云端</p>
-              <button onClick={onLogout} className="w-full py-3 border border-gray-200 text-gray-600 rounded-lg font-bold">
-                退出登录
-              </button>
+              
+              {!logoutConfirm ? (
+                <button 
+                  onClick={() => setLogoutConfirm(true)} 
+                  className="w-full py-3 border border-gray-200 text-gray-600 rounded-lg font-bold hover:bg-gray-50 flex items-center justify-center gap-2"
+                >
+                  <LogOut size={16}/> 退出登录
+                </button>
+              ) : (
+                <div className="bg-red-50 p-3 rounded-xl animate-in fade-in">
+                  <p className="text-xs text-red-600 font-bold mb-3">确定退出？本地缓存的数据将被清除。</p>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setLogoutConfirm(false)} 
+                      className="flex-1 py-2 bg-white text-gray-600 rounded border border-gray-200 text-xs font-bold"
+                    >
+                      取消
+                    </button>
+                    <button 
+                      onClick={onLogout} 
+                      className="flex-1 py-2 bg-red-600 text-white rounded text-xs font-bold shadow-md hover:bg-red-700 flex items-center justify-center gap-1"
+                    >
+                      <Trash2 size={12}/> 确认退出
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
         ) : (
           <div className="space-y-4">
@@ -147,7 +173,7 @@ export const CloudAuthModal: React.FC<CloudAuthModalProps> = ({
                     value={password} 
                     onChange={e => setPassword(e.target.value)} 
                     className="w-full border-b py-2 pl-6 text-base font-bold outline-none focus:border-blue-500 transition-colors" 
-                    placeholder="******"
+                    placeholder=""
                   />
               </div>
             </div>
