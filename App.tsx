@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { safeGetStorage, calculateBillPeriod } from './utils';
 import { STORAGE_KEY_CONFIG, STORAGE_KEY_DATA, DEFAULT_CONFIG } from './constants';
-import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent, BillRecord } from './types';
+import { Room, AppConfig, HistoryState, ActionHandlers, ModalState, InstallPromptEvent, BillRecord, BatchSettingsData } from './types';
 
 // Components
 import { RoomListView } from './components/RoomListView';
@@ -14,7 +14,7 @@ import { HistoryModal } from './components/HistoryModal';
 import { BillPreviewModal } from './components/BillPreviewModal';
 import { BillHistoryModal } from './components/BillHistoryModal';
 import { NewMonthModal } from './components/NewMonthModal';
-import { BatchDateModal } from './components/BatchDateModal';
+import { BatchEditModal } from './components/BatchEditModal'; // Changed import
 import { GenericConfirmModal } from './components/GenericConfirmModal';
 import { MoveOutModal } from './components/MoveOutModal';
 import { BatchBillModal } from './components/BatchBillModal';
@@ -222,7 +222,7 @@ export default function App() {
     window.location.reload();
   };
 
-  // --- Calculation Helpers (Requirement 2 & 3: No Global Config Fallback) ---
+  // --- Calculation Helpers ---
   const calculateTotal = (r: Room): number => {
     const getVal = (v: any) => parseFloat(v) || 0;
     const ep = r.fixedElecPrice || '0';
@@ -364,11 +364,20 @@ export default function App() {
       setModal({ type: null });
     },
 
-    updateBatchDate: (day) => {
-      commitChange(
-        history.present.map(r => selectedIds.has(r.id) ? { ...r, payDay: parseInt(day) } : r),
-        "批量修改日期"
-      );
+    updateBatchSettings: (settings: BatchSettingsData) => {
+      const updatedRooms = history.present.map(r => {
+        if (!selectedIds.has(r.id)) return r;
+        const updates: Partial<Room> = {};
+        
+        if (settings.payDay) updates.payDay = parseInt(settings.payDay);
+        if (settings.rent) updates.rent = settings.rent;
+        if (settings.fixedElecPrice) updates.fixedElecPrice = settings.fixedElecPrice;
+        if (settings.fixedWaterPrice) updates.fixedWaterPrice = settings.fixedWaterPrice;
+        
+        return { ...r, ...updates };
+      });
+
+      commitChange(updatedRooms, "批量修改设置");
       setSelectedIds(new Set());
       setIsSelectionMode(false);
       setModal({ type: null });
@@ -531,8 +540,8 @@ export default function App() {
         <NewMonthModal rooms={history.present} onAction={actions.newMonth} onCancel={() => setModal({ type: null })} />
       )}
       
-      {modal.type === 'batchDate' && (
-        <BatchDateModal count={selectedIds.size} onConfirm={actions.updateBatchDate} onCancel={() => setModal({ type: null })} />
+      {modal.type === 'batchEdit' && (
+        <BatchEditModal count={selectedIds.size} onConfirm={actions.updateBatchSettings} onCancel={() => setModal({ type: null })} />
       )}
 
       {modal.type === 'genericConfirm' && modal.onConfirm && (

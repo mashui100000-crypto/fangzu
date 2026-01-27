@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   X, CheckSquare, Search, BookOpen, History, 
   Building2, RotateCcw, FileText, Square, CheckCircle, Plus,
-  ListChecks, Copy, Download, Cloud, AlertCircle, Check
+  ListChecks, Copy, Download, Cloud, AlertCircle, Check, Settings2
 } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState, InstallPromptEvent } from '../types';
 import { getBuildingName } from '../utils';
@@ -45,14 +45,21 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
   setModal, openGuide, confirmAction, config,
   installPrompt, onInstall, cloudUser
 }) => {
-  const calcTotal = (r: Room) => {
-    const getVal = (v: any) => parseFloat(v) || 0;
+  const getVal = (v: any) => parseFloat(v) || 0;
+
+  const calcDetails = (r: Room) => {
     const ep = r.fixedElecPrice || '0';
     const wp = r.fixedWaterPrice || '0';
     const e = (getVal(r.elecCurr) - getVal(r.elecPrev)) * getVal(ep);
     const w = (getVal(r.waterCurr) - getVal(r.waterPrev)) * getVal(wp);
     const extra = (r.extraFees || []).reduce((sum, item) => sum + getVal(item.amount), 0);
-    return Math.max(0, getVal(r.rent) + Math.max(0, e) + Math.max(0, w) + extra);
+    const rent = getVal(r.rent);
+    return {
+        rent,
+        elec: Math.max(0, e),
+        water: Math.max(0, w),
+        total: Math.max(0, rent + Math.max(0, e) + Math.max(0, w) + extra)
+    };
   };
 
   const allBuildings = ['all', ...new Set(rooms.map(r => getBuildingName(r.roomNo)))].sort();
@@ -81,14 +88,22 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
   } else {
       if (filtered.length > 0) {
         displayGroups = [{
-            label: `${filter.date}号收租`,
+            label: `${filter.date}号收租 (共${filtered.length}户)`,
             rooms: sortRooms([...filtered])
         }];
       }
   }
 
-  const totalExpected = filtered.reduce((acc, r) => acc + calcTotal(r), 0);
-  const totalCollected = filtered.filter(r => r.status === 'paid').reduce((acc, r) => acc + calcTotal(r), 0);
+  // Statistics Calculation
+  const stats = filtered.reduce((acc, r) => {
+      const d = calcDetails(r);
+      acc.total += d.total;
+      acc.rent += d.rent;
+      acc.elec += d.elec;
+      acc.water += d.water;
+      if (r.status === 'paid') acc.collected += d.total;
+      return acc;
+  }, { total: 0, rent: 0, elec: 0, water: 0, collected: 0 });
   
   const toggleSelect = (id: string) => { 
     const newSet = new Set(batch.ids); 
@@ -147,11 +162,11 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                 </div>
                 <div className="flex gap-2">
                      <button 
-                        onClick={() => setModal({ type: 'batchDate' })} 
+                        onClick={() => setModal({ type: 'batchEdit' })} 
                         disabled={batch.ids.size === 0} 
-                        className="flex-1 text-xs py-2 bg-white text-gray-700 rounded border font-bold disabled:opacity-50"
+                        className="flex-1 text-xs py-2 bg-white text-gray-700 rounded border font-bold disabled:opacity-50 flex items-center justify-center gap-1"
                     >
-                        改日期
+                        <Settings2 size={14}/> 批量设置
                     </button>
                     <button 
                         onClick={openBatchBill} 
@@ -245,19 +260,29 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
             </div>
             
             {!batch.isMode && (
-                <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-                <div className="text-xs text-gray-500 flex gap-3">
-                    <span>应收 <b className="text-gray-900">¥{totalExpected.toLocaleString()}</b></span>
-                    <span>已收 <b className="text-green-600">¥{totalCollected.toLocaleString()}</b></span>
-                </div>
-                <div className="flex gap-2">
-                    <button onClick={() => batch.setMode(true)} className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg flex items-center gap-1 active:bg-gray-200">
-                    <CheckSquare size={12}/> 批量
-                    </button>
-                    <button onClick={() => setModal({ type: 'newMonth' })} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1 active:bg-blue-100">
-                    <RotateCcw size={12}/> 结算
-                    </button>
-                </div>
+                <div className="pt-2 border-t border-gray-50">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs text-gray-500">应收总计: <b className="text-gray-900 text-base">¥{stats.total.toLocaleString()}</b></span>
+                        <span className="text-xs text-green-600 font-bold">已收: ¥{stats.collected.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                         <div className="flex gap-3 text-[10px] text-gray-400">
+                             <span>房租: ¥{stats.rent.toLocaleString()}</span>
+                             <span className="w-px h-3 bg-gray-200"></span>
+                             <span>水费: ¥{stats.water.toLocaleString()}</span>
+                             <span className="w-px h-3 bg-gray-200"></span>
+                             <span>电费: ¥{stats.elec.toLocaleString()}</span>
+                         </div>
+                         <div className="flex gap-2">
+                            <button onClick={() => batch.setMode(true)} className="text-xs font-bold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg flex items-center gap-1 active:bg-gray-200">
+                                <CheckSquare size={12}/> 批量
+                            </button>
+                            <button onClick={() => setModal({ type: 'newMonth' })} className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1 active:bg-blue-100">
+                                <RotateCcw size={12}/> 结算
+                            </button>
+                         </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -274,7 +299,7 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
             )}
             <div className="grid grid-cols-1 gap-3">
               {group.rooms.map(room => {
-                const total = calcTotal(room);
+                const details = calcDetails(room);
                 const isPaid = room.status === 'paid';
                 const isSelected = batch.ids.has(room.id);
                 return (
@@ -299,7 +324,7 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                             </span>
                           )}
                         </div>
-                        <span className="text-lg font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{total.toLocaleString()}</span>
+                        <span className="text-lg font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{details.total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center h-6">
                         <span className="text-xs text-gray-400 flex items-center gap-1">

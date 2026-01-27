@@ -71,6 +71,13 @@ export interface HistoryState {
   present: Room[];
 }
 
+export interface BatchSettingsData {
+  payDay?: string;
+  rent?: string;
+  fixedElecPrice?: string;
+  fixedWaterPrice?: string;
+}
+
 export interface ActionHandlers {
   addRoom: (data: Partial<Room>) => void;
   batchAddConfirmed: (previewRooms: Partial<Room>[]) => void;
@@ -78,9 +85,9 @@ export interface ActionHandlers {
   saveRoom: (id: string, data: Partial<Room>) => void;
   deleteSingle: (id: string) => void;
   deleteBatch: () => void;
-  updateBatchDate: (day: string) => void;
+  updateBatchSettings: (settings: BatchSettingsData) => void; // Updated handler
   newMonth: (targetDay: number | 'all') => void;
-  settleSingleRoom: (id: string) => void; // New Action
+  settleSingleRoom: (id: string) => void;
   moveOut: (id: string, returnDeposit: boolean) => void;
 }
 
@@ -90,7 +97,7 @@ export type ModalType =
   | 'batchBill'
   | 'moveOut' 
   | 'newMonth' 
-  | 'batchDate' 
+  | 'batchEdit' // Changed from batchDate
   | 'genericConfirm' 
   | 'billHistory'
   | 'cloudAuth'
