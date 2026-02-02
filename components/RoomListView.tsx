@@ -191,7 +191,6 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
               </div>
 
               <div className="flex-1 flex justify-end pl-2">
-                 {/* CHANGED: Flex row layout for buttons to fit on one line */}
                  <div className="flex items-center gap-2">
                     {installPrompt && (
                        <button onClick={onInstall} className="flex items-center justify-center gap-1 bg-black text-white px-2 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap">
@@ -319,15 +318,13 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-1">
                         <div className="flex items-baseline gap-2 overflow-hidden">
-                          {/* CHANGED: text-base back to text-lg */}
                           <span className="text-lg font-bold text-gray-800 whitespace-nowrap">{room.roomNo}</span>
                           {room.tenantName && (
-                            <span className="text-xs font-bold text-gray-500 truncate">
+                            <span className="text-sm font-bold text-gray-500 truncate">
                               {room.tenantName}
                             </span>
                           )}
                         </div>
-                        {/* CHANGED: text-base back to text-lg */}
                         <span className="text-lg font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{details.total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center h-5">
