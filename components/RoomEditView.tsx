@@ -1,6 +1,6 @@
 
-import React, { useEffect } from 'react';
-import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone, History, CreditCard } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Trash2, Zap, Droplets, LogOut, X, Calendar, User, Phone, History, CreditCard, Save } from 'lucide-react';
 import { Room, AppConfig, ActionHandlers, ModalState } from '../types';
 
 interface RoomEditViewProps {
@@ -20,41 +20,58 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   setModal, 
   confirmAction 
 }) => {
-  if (!room) { 
-    setTimeout(onBack, 0); 
+  // --- Initialization with Deep Copy for Local State ---
+  const [draft, setDraft] = useState<Room | null>(() => room ? JSON.parse(JSON.stringify(room)) : null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  // Sync if room prop changes unexpectedly, but mainly rely on local draft
+  useEffect(() => {
+    if (room && (!draft || draft.id !== room.id)) {
+        setDraft(JSON.parse(JSON.stringify(room)));
+        setIsDirty(false);
+    }
+  }, [room]);
+
+  if (!draft || !room) { 
     return null; 
   }
 
   const getVal = (v: any) => parseFloat(v) || 0;
-  // Requirement 2: Utility prices are now per-room only. Default to 0 if not set.
-  const elecPrice = room.fixedElecPrice || '0';
-  const waterPrice = room.fixedWaterPrice || '0';
   
-  const elecUsage = getVal(room.elecCurr) - getVal(room.elecPrev);
+  // Calculations based on DRAFT
+  const elecPrice = draft.fixedElecPrice || '0';
+  const waterPrice = draft.fixedWaterPrice || '0';
+  
+  const elecUsage = getVal(draft.elecCurr) - getVal(draft.elecPrev);
   const elecTotal = Math.max(0, elecUsage * getVal(elecPrice));
-  const waterUsage = getVal(room.waterCurr) - getVal(room.waterPrev);
+  const waterUsage = getVal(draft.waterCurr) - getVal(draft.waterPrev);
   const waterTotal = Math.max(0, waterUsage * getVal(waterPrice));
-  const extraFees = room.extraFees || [];
+  const extraFees = draft.extraFees || [];
   const extraTotal = extraFees.reduce((sum, item) => sum + getVal(item.amount), 0);
-  const grandTotal = getVal(room.rent) + elecTotal + waterTotal + extraTotal;
+  const grandTotal = getVal(draft.rent) + elecTotal + waterTotal + extraTotal;
 
-  const handleChange = (f: keyof Room, v: any) => actions.updateRoom(room.id, { [f]: v });
-  
-  // Special handler for Move-In Date change to sync PayDay
-  const handleDateChange = (dateStr: string) => {
-    const updates: Partial<Room> = { moveInDate: dateStr };
-    if (dateStr) {
-      const day = new Date(dateStr).getDate();
-      if (!isNaN(day)) updates.payDay = day;
-    }
-    actions.updateRoom(room.id, updates);
+  // Local State Update Handler
+  const updateDraft = (f: keyof Room, v: any) => {
+    setDraft(prev => prev ? ({ ...prev, [f]: v }) : null);
+    setIsDirty(true);
   };
 
-  const handleExtraChange = (newFees: any[]) => actions.updateRoom(room.id, { extraFees: newFees });
-  
-  const toggleStatus = () => { 
-    actions.saveRoom(room.id, { status: room.status === 'paid' ? 'unpaid' : 'paid' }); 
-    onBack(); 
+  // Special handler for Move-In Date change to sync PayDay
+  const handleDateChange = (dateStr: string) => {
+    setDraft(prev => {
+        if (!prev) return null;
+        const updates: Partial<Room> = { moveInDate: dateStr };
+        if (dateStr) {
+          const day = new Date(dateStr).getDate();
+          if (!isNaN(day)) updates.payDay = day;
+        }
+        return { ...prev, ...updates };
+    });
+    setIsDirty(true);
+  };
+
+  const handleExtraChange = (newFees: any[]) => {
+      updateDraft('extraFees', newFees);
   };
 
   const addExtra = () => handleExtraChange([...extraFees, { id: Date.now(), name: '', amount: '' }]);
@@ -67,18 +84,57 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   };
   
   const requestRemoveExtra = (idx: number) => {
-    confirmAction(
-      "删除费用?",
-      `确定删除 "${extraFees[idx].name || '未命名费用'}" 吗？`,
-      () => handleExtraChange(extraFees.filter((_, i) => i !== idx))
-    );
+    const newFees = extraFees.filter((_, i) => i !== idx);
+    handleExtraChange(newFees);
+  };
+
+  const handleSave = () => {
+      if (draft) {
+          actions.saveRoom(draft.id, draft);
+          setIsDirty(false);
+      }
+  };
+
+  const handleBack = () => {
+      if (isDirty) {
+          confirmAction(
+              "未保存修改", 
+              "您修改了房间信息但尚未保存。确定要放弃修改并退出吗？", 
+              onBack
+          );
+      } else {
+          onBack();
+      }
+  };
+
+  const toggleStatus = () => { 
+    // Status toggle is an explicit action, usually instant. 
+    // We can update draft OR execute action.
+    // To prevent conflict with manual save, we'll just toggle in draft and require save, 
+    // OR we execute immediately. Users prefer status toggle to be instant usually, 
+    // but mixing manual save and instant action is confusing.
+    // Let's make toggle status PART OF THE FORM (Manual Save).
+    const newStatus = draft.status === 'paid' ? 'unpaid' : 'paid';
+    updateDraft('status', newStatus);
+    
+    // HOWEVER, the button says "Confirm Payment". If I click it, I expect it to be done.
+    // Let's save immediately for this specific action to be user friendly.
+    actions.saveRoom(draft.id, { ...draft, status: newStatus });
+    setDraft(prev => prev ? ({ ...prev, status: newStatus }) : null);
+    setIsDirty(false); 
+    // Optional: Auto-exit on payment? Maybe stay.
+    if (newStatus === 'paid') onBack();
   };
 
   const handleMoveOutRequest = () => {
-    setModal({ type: 'moveOut', data: room });
+    setModal({ type: 'moveOut', data: draft }); // Pass draft data
   };
   
   const handleSingleSettle = () => {
+      if (isDirty) {
+          alert("请先保存当前修改后再进行结算");
+          return;
+      }
       confirmAction(
           "确认结算本月?", 
           "系统将保存当前账单到历史记录，把本月读数转为上月读数，并自动设置下一个账单周期的日期。", 
@@ -87,33 +143,35 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
   };
 
   // Validation Logic
-  const isPhoneValid = !room.tenantPhone || /^\d{11}$/.test(room.tenantPhone);
-  const isIdCardValid = !room.tenantIdCard || /^.{18}$/.test(room.tenantIdCard); 
+  const isPhoneValid = !draft.tenantPhone || /^\d{11}$/.test(draft.tenantPhone);
+  const isIdCardValid = !draft.tenantIdCard || /^.{18}$/.test(draft.tenantIdCard); 
 
   return (
     <div className="flex flex-col min-h-screen bg-white">
       <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100 sticky top-0 bg-white z-20">
-        <button onClick={onBack} className="flex items-center gap-1 text-gray-600 hover:text-gray-900 font-bold text-sm">
+        <button onClick={handleBack} className="flex items-center gap-1 text-gray-600 hover:text-gray-900 font-bold text-sm">
           <ArrowLeft size={18}/> 返回
         </button>
-        <span className="font-bold text-lg text-gray-800">{room.roomNo}</span>
+        <span className="font-bold text-lg text-gray-800">{draft.roomNo}</span>
+        
         <button 
-          onClick={() => confirmAction("删除房间?", "确定删除此房间吗？数据可恢复。", () => actions.deleteSingle(room.id))} 
-          className="flex items-center gap-1 text-red-500 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors"
+          onClick={handleSave} 
+          disabled={!isDirty}
+          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all ${isDirty ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-400'}`}
         >
-          <Trash2 size={16} />
-          <span className="text-xs font-bold">删除</span>
+          <Save size={16} />
+          <span className="text-xs font-bold">保存</span>
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 pb-32 space-y-8 mt-6">
         <div className="text-center bg-blue-50 py-6 rounded-2xl border border-blue-100 relative group">
-          <p className="text-xs text-blue-400 font-bold uppercase mb-1">本月应收</p>
+          <p className="text-xs text-blue-400 font-bold uppercase mb-1">本月应收 (预览)</p>
           <div className="text-5xl font-black text-blue-900 font-mono tracking-tighter">¥{grandTotal.toLocaleString()}</div>
-          <div className="absolute top-2 right-3 text-blue-300 text-xs font-bold bg-white/50 px-2 py-1 rounded-lg">押金: {room.deposit || 0}</div>
+          <div className="absolute top-2 right-3 text-blue-300 text-xs font-bold bg-white/50 px-2 py-1 rounded-lg">押金: {draft.deposit || 0}</div>
           
           <button 
-            onClick={() => setModal({ type: 'billHistory', data: room })}
+            onClick={() => setModal({ type: 'billHistory', data: room })} // History always uses saved state
             className="absolute top-2 left-3 text-blue-400 hover:text-blue-600 p-1 bg-white/50 rounded-lg flex items-center gap-1 text-xs font-bold"
           >
             <History size={14}/> 历史
@@ -133,8 +191,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
                     <input 
                       placeholder="租客姓名" 
                       className="w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border border-gray-200 rounded outline-none"
-                      value={room.tenantName || ''}
-                      onChange={e => handleChange('tenantName', e.target.value)}
+                      value={draft.tenantName || ''}
+                      onChange={e => updateDraft('tenantName', e.target.value)}
                     />
                  </div>
              </div>
@@ -145,8 +203,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
                       type="tel"
                       placeholder="联系电话" 
                       className={`w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border rounded outline-none ${!isPhoneValid ? 'border-red-500 text-red-600 bg-red-50' : 'border-gray-200'}`}
-                      value={room.tenantPhone || ''}
-                      onChange={e => handleChange('tenantPhone', e.target.value)}
+                      value={draft.tenantPhone || ''}
+                      onChange={e => updateDraft('tenantPhone', e.target.value)}
                     />
                  </div>
                  {!isPhoneValid && <p className="text-[10px] text-red-500 mt-1 pl-1">电话需11位</p>}
@@ -159,8 +217,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
                 <input 
                   placeholder="身份证号" 
                   className={`w-full pl-7 pr-2 py-2 text-sm font-bold bg-white border rounded outline-none ${!isIdCardValid ? 'border-red-500 text-red-600 bg-red-50' : 'border-gray-200'}`}
-                  value={room.tenantIdCard || ''}
-                  onChange={e => handleChange('tenantIdCard', e.target.value)}
+                  value={draft.tenantIdCard || ''}
+                  onChange={e => updateDraft('tenantIdCard', e.target.value)}
                   maxLength={18}
                 />
              </div>
@@ -172,17 +230,17 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">房租(元)</label>
-            <input type="number" value={room.rent || ''} onChange={(e) => handleChange('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="" />
+            <input type="number" value={draft.rent || ''} onChange={(e) => updateDraft('rent', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" placeholder="" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">押金(元)</label>
-            <input type="number" value={room.deposit || ''} onChange={(e) => handleChange('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="" />
+            <input type="number" value={draft.deposit || ''} onChange={(e) => updateDraft('deposit', e.target.value)} className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none text-blue-600" placeholder="" />
           </div>
           <div>
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">入住日期</label>
             <input 
               type="date" 
-              value={room.moveInDate || ''} 
+              value={draft.moveInDate || ''} 
               onChange={(e) => handleDateChange(e.target.value)} 
               className="w-full text-sm font-bold border-b border-gray-200 py-1.5 outline-none" 
             />
@@ -191,8 +249,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <label className="text-[10px] font-bold text-gray-400 uppercase block mb-1">收租时间(号)</label>
             <input 
               type="number" 
-              value={room.payDay || ''} 
-              onChange={(e) => handleChange('payDay', parseInt(e.target.value))} 
+              value={draft.payDay || ''} 
+              onChange={(e) => updateDraft('payDay', parseInt(e.target.value))} 
               className="w-full text-lg font-bold border-b border-gray-200 py-1 outline-none" 
               placeholder="" 
             />
@@ -217,15 +275,15 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
              <input 
                type="date" 
                className="flex-1 bg-white border border-gray-200 rounded px-2 py-2 text-sm font-bold text-gray-800 outline-none"
-               value={room.billStartDate || ''}
-               onChange={e => handleChange('billStartDate', e.target.value)}
+               value={draft.billStartDate || ''}
+               onChange={e => updateDraft('billStartDate', e.target.value)}
              />
              <span className="text-gray-400 text-xs">至</span>
              <input 
                type="date" 
                className="flex-1 bg-white border border-gray-200 rounded px-2 py-2 text-sm font-bold text-gray-800 outline-none"
-               value={room.billEndDate || ''}
-               onChange={e => handleChange('billEndDate', e.target.value)}
+               value={draft.billEndDate || ''}
+               onChange={e => updateDraft('billEndDate', e.target.value)}
              />
            </div>
         </div>
@@ -251,8 +309,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
                     <span className="text-[10px] font-bold text-yellow-700">单价:</span>
                     <input 
                         type="number" 
-                        value={room.fixedElecPrice || ''} 
-                        onChange={e => handleChange('fixedElecPrice', e.target.value)}
+                        value={draft.fixedElecPrice || ''} 
+                        onChange={e => updateDraft('fixedElecPrice', e.target.value)}
                         className="w-12 bg-transparent text-xs font-bold text-yellow-700 outline-none border-b border-yellow-200 text-right"
                     />
                   </div>
@@ -262,11 +320,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">上月读数</label>
-                <input type="number" value={room.elecPrev || ''} onChange={(e) => handleChange('elecPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder=""/>
+                <input type="number" value={draft.elecPrev || ''} onChange={(e) => updateDraft('elecPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder=""/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-blue-600 font-bold block mb-1">本月读数</label>
-                <input type="number" autoFocus value={room.elecCurr || ''} onChange={(e) => handleChange('elecCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder=""/>
+                <input type="number" autoFocus value={draft.elecCurr || ''} onChange={(e) => updateDraft('elecCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder=""/>
               </div>
             </div>
           </div>
@@ -291,8 +349,8 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
                     <span className="text-[10px] font-bold text-blue-700">单价:</span>
                     <input 
                         type="number" 
-                        value={room.fixedWaterPrice || ''} 
-                        onChange={e => handleChange('fixedWaterPrice', e.target.value)}
+                        value={draft.fixedWaterPrice || ''} 
+                        onChange={e => updateDraft('fixedWaterPrice', e.target.value)}
                         className="w-12 bg-transparent text-xs font-bold text-blue-700 outline-none border-b border-blue-200 text-right"
                     />
                   </div>
@@ -302,11 +360,11 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="text-[10px] text-gray-400 block mb-1">上月读数</label>
-                <input type="number" value={room.waterPrev || ''} onChange={(e) => handleChange('waterPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder=""/>
+                <input type="number" value={draft.waterPrev || ''} onChange={(e) => updateDraft('waterPrev', e.target.value)} className="w-full bg-gray-50 rounded p-2 text-sm font-bold text-gray-500 outline-none" placeholder=""/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-blue-600 font-bold block mb-1">本月读数</label>
-                <input type="number" value={room.waterCurr || ''} onChange={(e) => handleChange('waterCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder=""/>
+                <input type="number" value={draft.waterCurr || ''} onChange={(e) => updateDraft('waterCurr', e.target.value)} className="w-full bg-blue-50 border border-blue-200 rounded p-2 text-lg font-bold text-gray-900 outline-none" placeholder=""/>
               </div>
             </div>
           </div>
@@ -330,18 +388,27 @@ export const RoomEditView: React.FC<RoomEditViewProps> = ({
           </div>
         </div>
 
-        <div className="pt-4 border-t border-gray-100">
+        <div className="pt-4 border-t border-gray-100 flex flex-col gap-3">
           <button onClick={handleMoveOutRequest} className="w-full py-3 border border-red-200 text-red-600 rounded-xl font-bold text-sm flex items-center justify-center gap-2">
             <LogOut size={16}/> 办理退租
+          </button>
+          
+          <button 
+            onClick={() => confirmAction("删除房间?", "确定删除此房间吗？数据可恢复。", () => actions.deleteSingle(room.id))} 
+            className="w-full py-3 border border-gray-100 text-gray-400 rounded-xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-gray-50 hover:text-red-400"
+          >
+            <Trash2 size={16} /> 删除房间
           </button>
         </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 p-5 bg-white border-t border-gray-100 z-40">
         <div className="grid grid-cols-[1fr_2fr] gap-4 max-w-md mx-auto">
-          <button onClick={() => setModal({ type: 'bill', data: room })} className="bg-gray-100 text-gray-600 rounded-lg py-3 font-bold text-sm">生成账单</button>
-          <button onClick={toggleStatus} className={`rounded-lg py-3 font-bold text-white shadow-sm flex items-center justify-center gap-2 ${room.status === 'paid' ? 'bg-gray-400' : 'bg-black'}`}>
-            {room.status === 'paid' ? '标记未收' : '确认收款'}
+          <button onClick={() => setModal({ type: 'bill', data: isDirty ? draft : room })} className="bg-gray-100 text-gray-600 rounded-lg py-3 font-bold text-sm">
+             {isDirty ? '预览账单(未保存)' : '生成账单'}
+          </button>
+          <button onClick={toggleStatus} className={`rounded-lg py-3 font-bold text-white shadow-sm flex items-center justify-center gap-2 ${draft.status === 'paid' ? 'bg-gray-400' : 'bg-black'}`}>
+            {draft.status === 'paid' ? '标记未收' : '确认收款'}
           </button>
         </div>
       </div>

@@ -320,7 +320,7 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                         <div className="flex items-baseline gap-2 overflow-hidden">
                           <span className="text-lg font-bold text-gray-800 whitespace-nowrap">{room.roomNo}</span>
                           {room.tenantName && (
-                            <span className="text-sm font-bold text-gray-500 truncate">
+                            <span className="text-xl font-bold text-gray-700 truncate ml-2">
                               {room.tenantName}
                             </span>
                           )}
@@ -329,8 +329,8 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                       </div>
                       <div className="flex justify-between items-center h-5">
                         <span className="text-[10px] text-gray-400 flex items-center gap-1">
-                          <Building2 size={10}/> {getBuildingName(room.roomNo)}
-                          {room.moveInDate && <span className="ml-1 text-gray-400">| 入住: {room.moveInDate}</span>}
+                          {/* Removed Building Info/Icon */}
+                          {room.moveInDate && <span className="text-gray-400">入住: {room.moveInDate}</span>}
                         </span>
                         {!batch.isMode && !isPaid && (
                           <button 
