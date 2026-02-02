@@ -191,19 +191,20 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
               </div>
 
               <div className="flex-1 flex justify-end pl-2">
-                 <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:gap-1.5 w-auto">
+                 {/* CHANGED: Flex row layout for buttons to fit on one line */}
+                 <div className="flex items-center gap-2">
                     {installPrompt && (
-                       <button onClick={onInstall} className="flex items-center justify-center gap-1 bg-black text-white px-2 py-1 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap w-full sm:w-auto">
+                       <button onClick={onInstall} className="flex items-center justify-center gap-1 bg-black text-white px-2 py-1.5 rounded-full text-xs font-bold shadow-md hover:scale-105 transition-transform whitespace-nowrap">
                          <Download size={12}/> <span>安装</span>
                        </button>
                     )}
-                    <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex items-center justify-center gap-1 bg-white border border-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm whitespace-nowrap w-full sm:w-auto">
+                    <button onClick={() => setModal({ type: 'cloudAuth' })} className="flex items-center justify-center gap-1 bg-white border border-blue-100 text-blue-600 px-2 py-1.5 rounded-full text-xs font-bold hover:bg-blue-50 shadow-sm whitespace-nowrap">
                       <Cloud size={12}/> <span>云同步</span>
                     </button>
-                    <button onClick={openGuide} className="flex items-center justify-center gap-1 bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-bold hover:bg-blue-200 whitespace-nowrap w-full sm:w-auto">
+                    <button onClick={openGuide} className="flex items-center justify-center gap-1 bg-blue-100 text-blue-700 px-2 py-1.5 rounded-full text-xs font-bold hover:bg-blue-200 whitespace-nowrap">
                       <BookOpen size={12}/> <span>指南</span>
                     </button>
-                    <button onClick={() => setModal({ type: 'history' })} className="flex items-center justify-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-bold hover:bg-gray-200 whitespace-nowrap w-full sm:w-auto">
+                    <button onClick={() => setModal({ type: 'history' })} className="flex items-center justify-center gap-1 bg-gray-100 text-gray-700 px-2 py-1.5 rounded-full text-xs font-bold hover:bg-gray-200 whitespace-nowrap">
                       <History size={12}/> <span>历史</span>
                     </button>
                  </div>
@@ -318,14 +319,16 @@ export const RoomListView: React.FC<RoomListViewProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center mb-1">
                         <div className="flex items-baseline gap-2 overflow-hidden">
-                          <span className="text-base font-bold text-gray-800 whitespace-nowrap">{room.roomNo}</span>
+                          {/* CHANGED: text-base back to text-lg */}
+                          <span className="text-lg font-bold text-gray-800 whitespace-nowrap">{room.roomNo}</span>
                           {room.tenantName && (
                             <span className="text-xs font-bold text-gray-500 truncate">
                               {room.tenantName}
                             </span>
                           )}
                         </div>
-                        <span className="text-base font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{details.total.toLocaleString()}</span>
+                        {/* CHANGED: text-base back to text-lg */}
+                        <span className="text-lg font-bold font-mono text-gray-900 flex-shrink-0 ml-2">¥{details.total.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center h-5">
                         <span className="text-[10px] text-gray-400 flex items-center gap-1">
