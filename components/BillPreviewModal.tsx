@@ -10,7 +10,8 @@ interface BillPreviewModalProps {
 }
 
 export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, onClose }) => {
-  const [mode, setMode] = useState<'text' | 'image'>('text');
+  // Changed default state from 'text' to 'image'
+  const [mode, setMode] = useState<'text' | 'image'>('image');
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -273,11 +274,11 @@ export const BillPreviewModal: React.FC<BillPreviewModalProps> = ({ room, onClos
         </div>
         
         <div className="flex bg-gray-100 p-1 rounded-lg mb-4 flex-shrink-0">
-          <button onClick={() => setMode('text')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'text' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>
-            📝 纯文本
-          </button>
           <button onClick={() => setMode('image')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'image' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}>
             🖼️ 正式图片
+          </button>
+          <button onClick={() => setMode('text')} className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${mode === 'text' ? 'bg-white shadow text-black' : 'text-gray-500'}`}>
+            📝 纯文本
           </button>
         </div>
         
